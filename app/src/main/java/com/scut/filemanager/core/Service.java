@@ -24,7 +24,7 @@ public class Service {
 
     }
 
-    Service(Context app_context){
+    public Service(Context app_context){
         //initialize member object
         if(app_context==null){
             Log.e("core.Service","can not initialize without context");
@@ -37,31 +37,39 @@ public class Service {
                 Environment.MEDIA_MOUNTED
         )){
             storage_emulated_0=android.os.Environment.getExternalStorageDirectory();
+            Log.d("core.Service","Get external storage directory successfully");
         }
         else if(ExternalStorageState.equals(
                 Environment.MEDIA_MOUNTED_READ_ONLY
         )){
             status=SERVICE_STATUS.READ_ONLY;
+            Log.d("core.Service","External storage state is read only now");
         }
         else {
             //这种情况其实是忽略了外部存储的其他可能状态，因为外部存储介质可能正在检查，抑或是处于未知状态
             //开发前期先将这些情况都归类到异常情况。
             status=SERVICE_STATUS.EXCEPTION;
+            Log.d("core.Service","status is unknown and encounter an unknown exception");
         }
 
 
         if(storage_emulated_0==null){
+            Log.e("core.Service","cannot get the file handle of storage_emulated_0");
             //shouldn't happen
             throw new NullPointerException("[core.Service]:getExternalStorageDirectory failed");
+
         }
         if(storage_emulated_0.listFiles()==null){
             status=SERVICE_STATUS.UNABLE_TO_READ_FILE_LIST;
+            Log.d("core.Service","unable to read file under /storage/emulated/0");
         }
         else if (storage_emulated_0.canWrite()){
             status=SERVICE_STATUS.OK;
+            Log.d("core.Service","status is ok");
         }
         else if(storage_emulated_0.canRead()){
             status=SERVICE_STATUS.READ_ONLY;
+            Log.d("core.Service","status is read only");
         }
         else{
             status=SERVICE_STATUS.EXCEPTION;
@@ -75,6 +83,7 @@ public class Service {
 
         //a tricky way to get the handle of SD_CARD, but need api > 19
         if(Build.VERSION.SDK_INT>Build.VERSION_CODES.KITKAT) {
+            Log.i("core.Service","Build version api > 19(KITKAT)");
             File[] package_zone_dir = context.getExternalFilesDirs(null);
             StringBuilder sdcard_dir_str;
             if(package_zone_dir.length==2&&package_zone_dir[1]!=null){
@@ -111,11 +120,18 @@ public class Service {
         return svc;
     }
 
-    //app 启动前，应该去检查这些组件的状态。
-    public static SERVICE_STATUS getStatus(){
-        return status;
+    public Context getContext(){
+        return context;
     }
 
+
+    //app 启动前，应该去检查这些组件的状态。
+    public SERVICE_STATUS getStatus(){
+        return status;
+    }
+    public SERVICE_STATUS getSdcardStatus(){
+        return sdcard_status;
+    }
 
     //注意，这里的根目录指代/storage/emulated/0
     //返回根目录绝对路径名
@@ -126,6 +142,7 @@ public class Service {
     }
 
     //返回封装类对象的句柄
+    @RequiresApi(api = Build.VERSION_CODES.O)
     public FileHandle getRootDirFileHandle() throws IOException {
         return new FileHandle(storage_emulated_0);
     }
@@ -149,6 +166,7 @@ public class Service {
     }
 
     //返回SD卡根目录句柄, 如果状态不合法则返回null
+    @RequiresApi(api = Build.VERSION_CODES.O)
     public FileHandle getSDCardRootDirectoryFileHandle() throws IOException {
         if(sdcard_status==SERVICE_STATUS.SDCARD_MOUNTED){
             return new FileHandle(storage_sdcard);
@@ -164,6 +182,7 @@ public class Service {
         return temp.concat(pathname);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.O)
     public  FileHandle getFileHandleUnderRootDir(String pathname)throws IOException{
         String path=getPathUnderRootDir(pathname);
         return new FileHandle(path);

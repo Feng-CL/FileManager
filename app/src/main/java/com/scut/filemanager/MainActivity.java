@@ -10,6 +10,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.Menu;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
@@ -24,6 +25,38 @@ import com.scut.filemanager.*;
 
 public class MainActivity extends AppCompatActivity
 {
+    MainController controller=null;
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+//        super.onCreate(savedInstanceState);
+//        setContentView(R.layout.activity_main);
+//        TextView tv=(TextView)findViewById(R.id.textview3);
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        controller=new MainController();
+        controller.startService(this);
+        try {
+            controller.init();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        //启动前准备,暂时先不对闲置对象进行管理
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        super.onCreateOptionsMenu(menu);
+        getMenuInflater().inflate(R.menu.main_frame_menu,menu);
+        return true;
+    }
+
 
 
     //permission
@@ -33,6 +66,7 @@ public class MainActivity extends AppCompatActivity
     };
 
     private static int REQUEST_PERMISSION_CODE = 1;
+    private static android.view.Menu _menu;
 
     @Override
     public void onRequestPermissionsResult(int requestCode,  String[] permissions, int[] grantResults) {
@@ -44,42 +78,18 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-
-
-
-
-
-
-    String [] data=new String[]{
-        "item1","item2","item3","item4","item5"
-    };
-
-    @RequiresApi(api = Build.VERSION_CODES.R)
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-//        super.onCreate(savedInstanceState);
-//        setContentView(R.layout.activity_main);
-//        TextView tv=(TextView)findViewById(R.id.textview3);
-
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        RatingBar sb= findViewById(R.id.rb);
-        ArrayAdapter<String> aaData=new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1,data);
-        TextView tv=findViewById(R.id.textView);
-
-        File ExternalRoot=android.os.Environment.getExternalStorageDirectory();
-        File DataDir=android.os.Environment.getDataDirectory();
-        com.scut.filemanager.core.Service service=com.scut.filemanager.core.Service.getInstance(this);
-        tv.setText("internalPirvateDir: "+service.getInternalPrivateDirectoryPathName()
-        +"\nexternalPrivateDir:"+service.getExternalPrivateDirectoryPathName()+
-                "\nExternalPublicRootDir: "+service.getRootDirPathName());
-        File[] files=getExternalFilesDirs(null);
-        StringBuilder sdcard_dir=new StringBuilder(files[1].getAbsolutePath());
-        int cut_pos=sdcard_dir.indexOf("/Android");
-        sdcard_dir.delete(cut_pos,sdcard_dir.length());
-        File sdcard_file=new File(sdcard_dir.toString());
+    public boolean onKeyDown(int keycode,KeyEvent k_ev){
+        if(keycode==KeyEvent.KEYCODE_BACK){
+            try {
+                return controller.handleKeyDownEvent_callback();
+            } catch (IOException e) {
+                e.printStackTrace();
+                return true;
+            }
+        }
+        else{
+            return true; //按键事件在该层被消费
+        }
     }
-
-
-
 }
