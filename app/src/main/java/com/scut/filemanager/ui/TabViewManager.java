@@ -1,6 +1,7 @@
 package com.scut.filemanager.ui;
 
 import android.os.Build;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.AdapterView;
@@ -41,6 +42,7 @@ public class TabViewManager implements AdapterView.OnItemClickListener,com.scut.
         adapter=new ItemAssembler(service.getContext(),current,R.layout.list_item); //reflection is used to get context of app by service
         ListView listView=(ListView)tabView;
         listView.setAdapter(adapter);
+        Log.d("TabViewManager","load first tab");
 
     }
 

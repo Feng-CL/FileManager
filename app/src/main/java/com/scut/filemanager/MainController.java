@@ -2,6 +2,7 @@ package com.scut.filemanager;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Build;
+import android.util.Log;
 import android.view.ViewStub;
 import android.widget.ListView;
 
@@ -56,6 +57,7 @@ public class MainController {
         tabViewManager=new TabViewManager(service,listView);
         listView.setOnItemClickListener(tabViewManager);
         setKeyDownEventListener(tabViewManager);
+        Log.d("MainController","init successfully");
     }
 
     public void setKeyDownEventListener(com.scut.filemanager.util.KeyDownEventHandler listener){

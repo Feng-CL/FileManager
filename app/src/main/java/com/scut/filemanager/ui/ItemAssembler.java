@@ -144,17 +144,15 @@ public class ItemAssembler extends BaseAdapter {
             //装载文字
             TextView item_textView=constraintLayout.findViewById(R.id.textview_item_name);
             TextView item_detail_textView=constraintLayout.findViewById(R.id.textview_item_detail);
-            try {
+
                 detailString.append(" size: "+com.scut.filemanager.util.textFormatter.byteCountDescriptionConvert_longToString(
-                       "KB", item.totalSize(),1
+                       "KB", item.Size(),1
                 )+"KB "+
                         com.scut.filemanager.util.textFormatter.timeDescriptionConvert_simpleLongToString(
                                 item.getLastModifiedTime()
                         )
                 );
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+
             item_textView.setText(item.getName());  item_detail_textView.setText(detailString.toString());
         }
         return constraintLayout;
