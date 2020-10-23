@@ -29,14 +29,14 @@ public class TabViewManager implements AdapterView.OnItemClickListener,com.scut.
     private Service service=null;
     private View tabView=null;
     private ItemAssembler adapter;
-    @RequiresApi(api = Build.VERSION_CODES.O)
+
     public TabViewManager(Service svc, View view) throws Exception {
         service=svc;
         tabView=view;
         LoadFirstTab();
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
+
     public void LoadFirstTab() throws Exception {
         current=service.getRootDirFileHandle();
         adapter=new ItemAssembler(service.getContext(),current,R.layout.list_item); //reflection is used to get context of app by service
@@ -63,13 +63,9 @@ public class TabViewManager implements AdapterView.OnItemClickListener,com.scut.
         //获取到constrainLayout: View
         FileHandle handle=(FileHandle)adapter.getItem(position); //a tricky way that modifies the content within adapter
         if(handle.isDirectory()){
-            try {
                 adapter.setFolder(handle);
                 parent=current;
                 current=handle;
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
     }
 
