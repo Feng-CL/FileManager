@@ -25,7 +25,8 @@ import java.util.List;
 import java.util.Map;
 
 /*
-@Description: 自定义一个项目装配器，用来装配相应数据到布局文件中。
+@Description: 自定义一个项目装配器，用来装配相应数据到布局文件中。 ItemAssembler 仅仅是一个临时
+名字，后期代码将为其重构为其他名字
  */
 public class ItemAssembler extends BaseAdapter {
 
@@ -34,7 +35,7 @@ public class ItemAssembler extends BaseAdapter {
     private int item_layout_id;
     private Context context;
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
+
     public ItemAssembler(Context app_context, FileHandle Folder, int resource) throws Exception {
         folder=Folder;
         item_layout_id=resource;
@@ -58,6 +59,9 @@ public class ItemAssembler extends BaseAdapter {
 
     }
 
+    /*
+    后期为了降低RequiresApiLevel ， 可能需要另外使用其它包，或自己写一个排序算法了
+     */
     @RequiresApi(api = Build.VERSION_CODES.N)
     public void sortAscending(){
         list.sort(
@@ -131,11 +135,8 @@ public class ItemAssembler extends BaseAdapter {
             if(item.isDirectory()){
                 imgView.setImageResource(R.drawable.icon_default_dir);
 
-                try {
                     itemCount_underfolder=item.getFileCount();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+
                 detailString.append("Total: "+itemCount_underfolder);
             }
             else{
@@ -180,15 +181,15 @@ public class ItemAssembler extends BaseAdapter {
         return folder;
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
-    public void setFolder(FileHandle nextFolder) throws IOException {
+
+    public void setFolder(FileHandle nextFolder){
         folder=nextFolder;
         updateItemSet();
         notifyDataSetChanged();
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
-    private void updateItemSet() throws IOException {
+
+    private void updateItemSet() {
         int item_count=folder.getFileCount();
         list.clear();
         if(item_count!=0){

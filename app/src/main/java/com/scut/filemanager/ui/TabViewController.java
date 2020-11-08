@@ -16,7 +16,7 @@ import com.scut.filemanager.core.Service;
 
 import java.io.IOException;
 
-public class TabViewManager implements AdapterView.OnItemClickListener,com.scut.filemanager.util.KeyDownEventHandler
+public class TabViewController implements AdapterView.OnItemClickListener,com.scut.filemanager.util.KeyDownEventHandler
 {
 
     /*
@@ -30,7 +30,7 @@ public class TabViewManager implements AdapterView.OnItemClickListener,com.scut.
     private View tabView=null;
     private ItemAssembler adapter;
 
-    public TabViewManager(Service svc, View view) throws Exception {
+    public TabViewController(Service svc, View view) throws Exception {
         service=svc;
         tabView=view;
         LoadFirstTab();
@@ -57,7 +57,7 @@ public class TabViewManager implements AdapterView.OnItemClickListener,com.scut.
     position	int: The position of the view in the adapter.
     id	long: The row id of the item that was clicked.
      */
-    @RequiresApi(api = Build.VERSION_CODES.O)
+
     @Override
     public void onItemClick(AdapterView<?> parentView, View view, int position, long id) {
         //获取到constrainLayout: View
@@ -69,7 +69,7 @@ public class TabViewManager implements AdapterView.OnItemClickListener,com.scut.
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
+
     public boolean onReturnKeyDown(AdapterView<?> parentView) throws IOException {
        if(parent!=null){
            current=parent;
@@ -88,7 +88,7 @@ public class TabViewManager implements AdapterView.OnItemClickListener,com.scut.
     }
 
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
+
     @Override
     public boolean onKeyDownEventHandleFunction(AdapterView<?> parentView, int keyCode, KeyEvent keyEvent) throws IOException {
         return onReturnKeyDown(parentView);
