@@ -4,6 +4,7 @@ package com.scut.filemanager.ui;
 import android.content.Context;
 import android.os.Build;
 import android.os.TestLooperManager;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,6 +18,7 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 
 import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
+import com.scut.filemanager.util.Sorter;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -34,6 +36,16 @@ public class ItemAssembler extends BaseAdapter {
     private ArrayList<FileHandle> list;
     private int item_layout_id;
     private Context context;
+    private Comparator<FileHandle> comparator=null;
+
+    private static Comparator<FileHandle> default_comparator=new Comparator<FileHandle>() {
+        @Override
+        public int compare(FileHandle f1, FileHandle f2) {
+            String str_f1=f1.getName(); String str_f2=f2.getName();
+            return str_f1.compareTo(str_f2);
+        }
+    };
+
 
 
     public ItemAssembler(Context app_context, FileHandle Folder, int resource) throws Exception {
@@ -116,6 +128,12 @@ public class ItemAssembler extends BaseAdapter {
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
+
+    /*
+    目前加载view的方法容易阻塞，即是一次刷新的架构，需要等待所有的空间内容都加载出来后
+    其父控件才开始显示其内容，为此为了打开文件比较多的文件夹时，需要考虑使用双线程二次刷新的方法
+     */
+
     public View getView(int i, View view, ViewGroup parent) {
         String inflater=Context.LAYOUT_INFLATER_SERVICE; //获取服务名称
         //获取上下文的布局装配器
@@ -188,6 +206,13 @@ public class ItemAssembler extends BaseAdapter {
         notifyDataSetChanged();
     }
 
+    public static void  setDefaultComparator(Comparator<FileHandle> comparator){
+        default_comparator=comparator;
+    }
+
+    public void setComparator(Comparator<FileHandle> cmptor){
+        comparator=cmptor;
+    }
 
     private void updateItemSet() {
         int item_count=folder.getFileCount();
@@ -195,10 +220,16 @@ public class ItemAssembler extends BaseAdapter {
         if(item_count!=0){
             list.ensureCapacity(item_count);
             FileHandle[] file_array=folder.listFiles();
+            //sort them,set up comparator
+            Comparator<FileHandle> useComparator;
+            useComparator=comparator!=null?comparator:default_comparator;
+
+            Sorter.mergeSort(file_array,useComparator,4);
+            Log.d("ItemAssembler","sorts items successfully");
+
             for(int i=0;i<item_count;i++){
                 list.add(file_array[i]);
             }
         }
-
     }
 }

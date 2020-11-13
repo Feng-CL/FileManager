@@ -1,4 +1,6 @@
 package com.scut.filemanager.util;
+import android.util.Log;
+
 import java.util.LinkedList;
 
 public class SimpleArrayFilter<E>{
@@ -11,7 +13,15 @@ public class SimpleArrayFilter<E>{
                 linkedList.add(inputElements[i]);
             }
         }
-        E[] ElementsFiltered=linkedList.toArray((E[])(new Object[0]));
-        return ElementsFiltered;
+        try {
+            E[] elementFilter = (E[])(new Object[linkedList.size()]);
+            linkedList.toArray(elementFilter);
+            return elementFilter;
+        }
+        catch (ClassCastException castException){
+            Log.e(this.getClass().getName(),castException.getMessage());
+            return null;
+        }
+
     }
 }

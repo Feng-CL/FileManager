@@ -329,65 +329,81 @@ public class Service {
 
         try {
             //need to make sure this operation is atomic
-            //
-            FileOutputStream fileOutput = new FileOutputStream(src_handle.file);
-            FileInputStream fileInput=new FileInputStream(dst_handle.file);
-
-            BufferedInputStream bufferInput=new BufferedInputStream(fileInput);
-            BufferedOutputStream bufferOutput=new BufferedOutputStream(fileOutput);
-
-            //4k buffer
-            int blockSize=4*1024;
-            byte[] buffer=new byte[blockSize];
-            int lastBlockLength=(int)(sizeInBytes%blockSize);
-            long numberOfBlocks=sizeInBytes/blockSize+1;  //this number contains tail block, used to align blocks
-            long numberOfBlocksCopied=0;
-
-            while(numberOfBlocksCopied<numberOfBlocks-1){
-                try {
-                    bufferInput.read(buffer);
-                    bufferOutput.write(buffer);
-
-                    numberOfBlocksCopied++;
-                    numberOfBytesCopied+=blockSize;
-
-                    monitor.onSubProgress(taskId,"numberOfBytesCopied",numberOfBytesCopied);
-
-                } catch (IOException e) {
-                    //record and report to monitor
-                    Log.e("core.Service","copying file by stream has incurred an IOException"+" Exception message: "+
-                            e.getMessage());
-                    monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
-                    return false;
+            //如果目标是目录，则不能通过流复制
+            if(src_handle.isDirectory()){
+                if(!dst_handle.isExist()) { //optimize this process
+                    boolean makeDirResult = dst_handle.makeDirectory();
+                    FileInputStream fileInput=new FileInputStream(dst_handle.file);
+                    return makeDirResult;
+                }
+                else{
+                    return true; //dst_handle exists
                 }
             }
+            else {
 
-            //deal with tail
-            int tailLength=(int)(sizeInBytes%blockSize);
-            if(tailLength!=0){
-                try{
-                    bufferInput.read(buffer,0,tailLength);
-                    bufferOutput.write(buffer,0,tailLength);
+                FileInputStream fileInput = new FileInputStream(src_handle.file);
+                FileOutputStream fileOutput = new FileOutputStream(dst_handle.file);
+                BufferedInputStream bufferInput = new BufferedInputStream(fileInput);
+                BufferedOutputStream bufferOutput = new BufferedOutputStream(fileOutput);
 
-                    numberOfBlocksCopied++;
-                    numberOfBytesCopied+=blockSize;
+                //4k buffer
+                int blockSize = 4 * 1024;
+                byte[] buffer = new byte[blockSize];
+                int lastBlockLength = (int) (sizeInBytes % blockSize);
+                long numberOfBlocks = sizeInBytes / blockSize + 1;  //this number contains tail block, used to align blocks
+                long numberOfBlocksCopied = 0;
 
-                    monitor.onSubProgress(taskId,"numberOfBytesCopied",numberOfBytesCopied);
+                while (numberOfBlocksCopied < numberOfBlocks - 1) {
+                    try {
+                        bufferInput.read(buffer);
+                        bufferOutput.write(buffer);
+
+                        numberOfBlocksCopied++;
+                        numberOfBytesCopied += blockSize;
+
+                        monitor.onSubProgress(taskId, "numberOfBytesCopied", numberOfBytesCopied);
+
+                    } catch (IOException e) {
+                        //record and report to monitor
+                        Log.e("core.Service", "copying file by stream has incurred an IOException" + " Exception message: " +
+                                e.getMessage());
+                        monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
+                        return false;
+                    }
                 }
-                catch(IOException e){
-                    Log.e("core.Service","copying file by stream has incurred an IOException"+" Exception message: "+
-                            e.getMessage());
-                    monitor.onSubTaskStop(taskId,ProgressMonitor.PROGRESS_STATUS.FAILED);
-                    return false;
+
+                //deal with tail
+                int tailLength = (int) (sizeInBytes % blockSize);
+                if (tailLength != 0) {
+                    try {
+                        bufferInput.read(buffer, 0, tailLength);
+                        bufferOutput.write(buffer, 0, tailLength);
+
+                        numberOfBlocksCopied++;
+                        numberOfBytesCopied += blockSize;
+
+                        monitor.onSubProgress(taskId, "numberOfBytesCopied", numberOfBytesCopied);
+                    } catch (IOException e) {
+                        Log.e("core.Service", "copying file by stream has incurred an IOException" + " Exception message: " +
+                                e.getMessage());
+                        monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
+                        return false;
+                    }
                 }
+
+                fileInput.close();
+                fileOutput.close();
+                monitor.onSubTaskFinish(taskId);
+                return true;
             }
-
-            monitor.onSubTaskFinish(taskId);
-            return true;
         }
         catch(FileNotFoundException ex){
             Log.e("core.Service","File not found or some wrong happen");
             monitor.onSubTaskStop(taskId,ProgressMonitor.PROGRESS_STATUS.FAILED);
+            return false;
+        } catch (IOException e) {
+            e.printStackTrace();
             return false;
         }
     }
@@ -420,34 +436,42 @@ public class Service {
         FileHandle[] list=src_folder.listFiles();
 
         taskId++;
+
         //need to copy the folder first
-        monitor.receiveMessage(taskId,src_folder.getAbsolutePathName());
         FileHandle dst_handle=new FileHandle(dst,"/"+src_folder.getName());
         FileHandle iterator_handle=dst_handle.clone();
-        copyByStream(src_folder,dst_handle,monitor,taskId);
+        monitor.receiveMessage(taskId,src_folder.getAbsolutePathName()+"->"+dst_handle.getAbsolutePathName());
+        copyByStream(src_folder,dst_handle,monitor,taskId); //create src_folder here, src_folder can either be a file
 
 
         if(list!=null){
-            //breath first
 
+            //breath first
             for(int i=0;i<list.length;i++){
                 taskId++;
                 monitor.receiveMessage(taskId,list[i].getAbsolutePathName());
-                iterator_handle.pointTo(dst_handle,list[i].getName());
+                iterator_handle.pointTo(dst_handle,"/"+list[i].getName());
                 copyByStream(list[i],iterator_handle,monitor,taskId);
             }
 
             //filter the list and get folders
             SimpleArrayFilter<FileHandle> simpleArrayFilter=new SimpleArrayFilter<>();
-            FileHandle[] folders=simpleArrayFilter.filter(list, new FileHandleFilter() {
+            FileHandle[] folders;
+            Object[] rawArray=simpleArrayFilter.filter(list, new FileHandleFilter() {
                 @Override
                 public boolean accept(FileHandle handle) {
                     return handle.isDirectory();
                 }
             });
+            folders=new FileHandle[rawArray.length];
+            for(int i=0;i<rawArray.length;i++){
+                folders[i]=(FileHandle)rawArray[i];
+            }
+
 
             //copy continues recursively
             for(int i=0;i<folders.length;i++){
+                //dst_handle.pointTo();
                 taskId=copyByStreamRecursively(taskId,folders[i],dst_handle,monitor);
             }
         }

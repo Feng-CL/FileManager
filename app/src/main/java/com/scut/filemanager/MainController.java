@@ -2,11 +2,13 @@ package com.scut.filemanager;
 import android.content.Context;
 import android.util.Log;
 import android.view.ViewStub;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.scut.filemanager.core.*;
+import com.scut.filemanager.ui.OperationBarController;
 import com.scut.filemanager.ui.TabViewController;
 import com.scut.filemanager.util.KeyDownEventHandler;
 
@@ -19,6 +21,7 @@ public class MainController {
     private Context context=null;
     private AppCompatActivity main_activity=null;
     private TabViewController tabViewController =null;
+    private OperationBarController operationBarController=null;
     /*这里的监听器目前只有一个，到后期通过保存监听器引用的队列，通过主控器对象
     * 获取来自MainFrame的事件，根据给定条件（状态）再分发事件到每一个拥有自定义监听器接口（协议）
     * 的对象上进行处理*/
@@ -53,6 +56,9 @@ public class MainController {
         tabViewController =new TabViewController(service,listView);
         listView.setOnItemClickListener(tabViewController);
         setKeyDownEventListener(tabViewController);
+
+        //初始化操作栏控制器
+        operationBarController=new OperationBarController((ViewStub)main_activity.findViewById(R.id.rootview_for_operationBar));
         Log.d("MainController","init successfully");
     }
 

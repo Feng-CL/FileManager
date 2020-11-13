@@ -6,10 +6,28 @@
     android:layout_height="match_parent"
     android:id="@+id/mainFrame"
     tools:context=".MainActivity">
-        <ViewStub
-            android:id="@+id/viewStub_main"
+
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            />
+            android:layout_height="match_parent">
+
+
+                <ViewStub
+                    android:id="@+id/viewStub_main"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    />
+
+                <!-- 操作栏视图桩，暂时使用了绝对布局-->
+                <ViewStub
+                    android:id="@+id/rootview_for_operationBar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="600dp"
+
+                    />
+        </FrameLayout>
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>
