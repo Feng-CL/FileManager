@@ -213,7 +213,7 @@ public class Service {
     }
 
     //
-    public void copy(FileHandle src, String dstPath,ProgressMonitor monitor,Service_CopyOption... options){
+    public Thread copy(FileHandle src, String dstPath,ProgressMonitor monitor,Service_CopyOption... options){
         int arg_len=options.length;
         boolean replace_existing,copy_attribute,not_following_link,recursive_copy;
         replace_existing=parseOption(Service_CopyOption.REPLACE_EXISTING,options);
@@ -227,7 +227,9 @@ public class Service {
             CopyTask copyTask=new CopyTask(0,monitor,src,dst);
             Thread copyThread=new Thread(copyTask);
             copyThread.start();
+            return copyThread;
         }
+        return null;
         //---------------------------------------------------------------
     }
 
@@ -348,7 +350,7 @@ public class Service {
                 BufferedOutputStream bufferOutput = new BufferedOutputStream(fileOutput);
 
                 //4k buffer
-                int blockSize = 4 * 1024;
+                int blockSize = 4*1024 * 1024;
                 byte[] buffer = new byte[blockSize];
                 int lastBlockLength = (int) (sizeInBytes % blockSize);
                 long numberOfBlocks = sizeInBytes / blockSize + 1;  //this number contains tail block, used to align blocks

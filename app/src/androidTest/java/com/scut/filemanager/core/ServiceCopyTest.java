@@ -17,7 +17,7 @@ public class ServiceCopyTest implements ProgressMonitor<String,Long>{
 
     String src_path="/storage/emulated/0/Download";
     String dst_path="/storage/emulated/0/Movies";
-    String src_dst_path=dst_path+"/Music";
+    String src_dst_path=dst_path+"/Download";
     Service service;
     @Before
     public void setUp() throws Exception {
@@ -31,10 +31,14 @@ public class ServiceCopyTest implements ProgressMonitor<String,Long>{
     }
 
     @Test
-    public void copy() {
+    public void copy() throws InterruptedException {
         FileHandle src=new FileHandle(src_path);
         assertTrue("service starts normally ",service.getStatus()== Service.SERVICE_STATUS.OK);
-        service.copy(src,dst_path, this,Service.Service_CopyOption.RECURSIVE_COPY);
+        long startTime=System.currentTimeMillis();
+        Thread copyThread=service.copy(src,dst_path, this,Service.Service_CopyOption.RECURSIVE_COPY);
+        copyThread.join();
+        long costTime=System.currentTimeMillis()-startTime;
+        System.out.println("cost time : "+costTime+"ms");
         assertTrue(service.ExistsAtPath(src_dst_path));
     }
 
