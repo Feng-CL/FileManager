@@ -1,14 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
+
+<!--此处如果使用了LinearLayout 作为operationBar的水平排布，则至少需要再在外层再套一层View
+ LinearLayout 总是根据子元素占据的控件大小来重新计算计算自身大小，而再xml设置的layoutHW属性
+ 则更多是一种preferenceHint
+ -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="300dp"
     android:layout_height="wrap_content"
     android:layout_gravity="center"
-    android:alpha="1"
+    android:minWidth="300dp"
     android:background="@color/white"
     android:gravity="center"
 
     android:orientation="horizontal"
-    android:paddingHorizontal="5dp">
+    >
 
     <RelativeLayout
         android:layout_width="50dp"

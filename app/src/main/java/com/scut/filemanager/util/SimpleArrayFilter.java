@@ -18,6 +18,7 @@ public class SimpleArrayFilter<E>{
             linkedList.toArray(elementFilter);
             return elementFilter;
         }
+        //处理类转换异常
         catch (ClassCastException castException){
             Log.e(this.getClass().getName(),castException.getMessage());
             return null;

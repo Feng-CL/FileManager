@@ -3,18 +3,20 @@ package com.scut.filemanager.ui;
 
 import android.content.Context;
 import android.os.Build;
-import android.os.TestLooperManager;
+
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.CheckBox;
 import android.widget.ImageView;
-import android.widget.SimpleAdapter;
+
+
 import android.widget.TextView;
 
 import androidx.annotation.RequiresApi;
-import androidx.constraintlayout.widget.ConstraintLayout;
+
 
 import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
@@ -23,19 +25,21 @@ import com.scut.filemanager.util.Sorter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+
 
 /*
 @Description: 自定义一个项目装配器，用来装配相应数据到布局文件中。 ItemAssembler 仅仅是一个临时
 名字，后期代码将为其重构为其他名字
  */
-public class ItemAssembler extends BaseAdapter {
+public class SimpleListItemAssembler extends BaseAdapter {
 
     private FileHandle folder=null;
     private ArrayList<FileHandle> list;
+    private int checkBoxVisibility;
+    private java.util.ArrayList<Boolean> selectedTable;
     private int item_layout_id;
-    private Context context;
+    private LayoutInflater inflater;
+
     private Comparator<FileHandle> comparator=null;
 
     private static Comparator<FileHandle> default_comparator=new Comparator<FileHandle>() {
@@ -48,9 +52,10 @@ public class ItemAssembler extends BaseAdapter {
 
 
 
-    public ItemAssembler(Context app_context, FileHandle Folder, int resource) throws Exception {
+    public SimpleListItemAssembler(FileHandle Folder, int resource,LayoutInflater inflater) throws Exception {
         folder=Folder;
         item_layout_id=resource;
+        this.inflater=inflater;
         //should not happen
         if(folder==null)
             throw new NullPointerException("[ItemAssember:creator]: Folder cannot be empty");
@@ -59,6 +64,7 @@ public class ItemAssembler extends BaseAdapter {
            throw new Exception("[ItemAssember:creator] argument isn't a folder");
         }
 
+        checkBoxVisibility=View.INVISIBLE;
         int count=folder.getFileCount();
         if(count!=0){
             list=new ArrayList<FileHandle>(count);
@@ -67,7 +73,9 @@ public class ItemAssembler extends BaseAdapter {
                 list.add(file_array[i]);
             }
         }
-        context=app_context;
+
+        selectedTable=new ArrayList<>();
+        this.refreshSelectedTable();
 
     }
 
@@ -131,24 +139,23 @@ public class ItemAssembler extends BaseAdapter {
 
     /*
     目前加载view的方法容易阻塞，即是一次刷新的架构，需要等待所有的空间内容都加载出来后
-    其父控件才开始显示其内容，为此为了打开文件比较多的文件夹时，需要考虑使用双线程二次刷新的方法
+    其父控件才开始显示其内容，为此为了打开文件比较多的文件夹时，需要考虑使用双线程显示与内容计算分离的方法。
      */
+    //listView attempts to reuse view objects in order to improve performance and avoid a lag in response to user scrolls.
+    public View getView(int i, View convertView, ViewGroup parent) {
 
-    public View getView(int i, View view, ViewGroup parent) {
-        String inflater=Context.LAYOUT_INFLATER_SERVICE; //获取服务名称
-        //获取上下文的布局装配器
-        LayoutInflater layoutInflater=(LayoutInflater)context.getSystemService(inflater);
-        ConstraintLayout constraintLayout=null;
         if(getCount()==0){
             //无需装载，空目录
-            constraintLayout=new ConstraintLayout(context);
-            return constraintLayout;
+            return null;
         }
         else{
             FileHandle item=(FileHandle)getItem(i);
-            constraintLayout= (ConstraintLayout) layoutInflater.inflate(item_layout_id,null);
+            if(convertView==null) {
+                convertView = inflater.inflate(item_layout_id, parent, false);
+            }
+
             //装载图标
-            ImageView imgView=constraintLayout.findViewById(R.id.imgview_item_icon);
+            ImageView imgView=convertView.findViewById(R.id.imgview_item_icon);
             int  itemCount_underfolder=0; StringBuilder detailString=new StringBuilder();
             if(item.isDirectory()){
                 imgView.setImageResource(R.drawable.icon_default_dir);
@@ -161,8 +168,8 @@ public class ItemAssembler extends BaseAdapter {
                 imgView.setImageResource(R.drawable.icon_raw_file);
             }
             //装载文字
-            TextView item_textView=constraintLayout.findViewById(R.id.textview_item_name);
-            TextView item_detail_textView=constraintLayout.findViewById(R.id.textview_item_detail);
+            TextView item_textView=convertView.findViewById(R.id.textview_item_name);
+            TextView item_detail_textView=convertView.findViewById(R.id.textview_item_detail);
 
                 detailString.append(" size: "+com.scut.filemanager.util.textFormatter.byteCountDescriptionConvert_longToString(
                        "KB", item.Size(),1
@@ -173,8 +180,13 @@ public class ItemAssembler extends BaseAdapter {
                 );
 
             item_textView.setText(item.getName());  item_detail_textView.setText(detailString.toString());
+
+            //调整checkBox 状态
+            CheckBox checkBox=convertView.findViewById(R.id.item_checkbox);
+            checkBox.setVisibility(checkBoxVisibility);
+            checkBox.setChecked(selectedTable.get(i));
         }
-        return constraintLayout;
+        return convertView;
     }
 
     public int getResourceId(String name)
@@ -199,10 +211,15 @@ public class ItemAssembler extends BaseAdapter {
         return folder;
     }
 
+    public void setSelectedAtItem(int i,boolean check){
+        selectedTable.set(i,check);
+    }
 
     public void setFolder(FileHandle nextFolder){
         folder=nextFolder;
         updateItemSet();
+        checkBoxVisibility=View.INVISIBLE;
+        refreshSelectedTable();
         notifyDataSetChanged();
     }
 
@@ -213,6 +230,49 @@ public class ItemAssembler extends BaseAdapter {
     public void setComparator(Comparator<FileHandle> cmptor){
         comparator=cmptor;
     }
+
+
+    public void refreshSelectedTable(){
+        int count=getCount();
+        int currentSize=selectedTable.size();
+        if(count<=currentSize){
+            if(count*3<currentSize){  //shrink the table
+                for (int i = currentSize-1; i>count-1 ; i--) {
+                    selectedTable.remove(i);
+                }
+            }
+            for (int i = 0; i < count; i++) {
+                selectedTable.set(i,false);
+            }
+        }
+        else{
+            for (int i = 0; i < currentSize; i++) {
+                selectedTable.set(i,false);
+                Log.d("SimpleListItemAssembler","code run");
+            }
+            for (int i = currentSize; i < count; i++) {
+                selectedTable.add(false);
+            }
+        }
+    }
+
+    public void refreshSelectedTableToAllSelected(){
+        for (int i = 0; i < selectedTable.size(); i++) {
+            selectedTable.set(i,true);
+        }
+    }
+
+    public void refreshSelectedTableToAllUnSelected(){
+        for (int i = 0; i <selectedTable.size(); i++) {
+            selectedTable.set(i,false);
+        }
+    }
+
+    public void updateCheckBoxDisplayState(int Visibility){
+        checkBoxVisibility=Visibility;
+        notifyDataSetChanged();
+    }
+
 
     private void updateItemSet() {
         int item_count=folder.getFileCount();
@@ -232,4 +292,10 @@ public class ItemAssembler extends BaseAdapter {
             }
         }
     }
+
+
+
+
+
+
 }

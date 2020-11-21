@@ -53,8 +53,9 @@ public class MainController {
         ViewStub viewStub= (ViewStub)main_activity.findViewById(R.id.viewStub_main);
         viewStub.setLayoutResource(R.layout.list_view_basic_for_files);
         ListView listView=(ListView)viewStub.inflate(); viewStub.setVisibility(ViewStub.VISIBLE);
-        tabViewController =new TabViewController(service,listView);
+        tabViewController =new TabViewController(service,listView,operationBarController);
         listView.setOnItemClickListener(tabViewController);
+        listView.setOnItemLongClickListener(tabViewController);
         setKeyDownEventListener(tabViewController);
 
         //初始化操作栏控制器
