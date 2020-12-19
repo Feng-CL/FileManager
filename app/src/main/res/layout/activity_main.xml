@@ -7,28 +7,40 @@
     android:id="@+id/mainFrame"
     tools:context=".MainActivity">
 
-        <FrameLayout
+        <LinearLayout
+            android:id="@+id/layout_tabViewContainer"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
-
-
+            android:layout_height="match_parent"
+            android:orientation="vertical">
                 <ViewStub
-                    android:id="@+id/viewStub_main"
+                    android:id="@+id/viewStub_for_locationBar"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    />
+                    android:layout_height="wrap_content"/>
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
 
-                <!-- 操作栏视图桩，暂时使用了绝对布局-->
-                <ViewStub
-                    android:id="@+id/rootview_for_operationBar"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="bottom|center_horizontal"
-                    android:layout_marginBottom="30dp"
 
-                    />
+                        <ViewStub
+                            android:id="@+id/viewStub_main"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            />
 
-        </FrameLayout>
+                        <!-- 操作栏视图桩，暂时使用了绝对布局-->
+                        <ViewStub
+                            android:id="@+id/rootview_for_operationBar"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="bottom|center_horizontal"
+                            android:layout_marginBottom="30dp"
+
+                            />
+
+                </FrameLayout>
+        </LinearLayout>
+
+
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

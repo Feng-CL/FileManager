@@ -8,7 +8,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class textFormatter {
+public class TextFormatter {
     //默认保留一位小数,用于转换单位
 
     /*

@@ -6,6 +6,7 @@ import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
 import com.scut.filemanager.util.SimpleArrayFilter;
@@ -16,11 +17,10 @@ import java.io.BufferedOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FilePermission;
 
 import java.io.IOException;
-import java.nio.file.Files;
-
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 
 //单线程服务对象，使用单体模式
@@ -113,6 +113,17 @@ public class Service {
             Log.i("[core.Service:]","sdcard cannot be got limited by API-Level and now sdcard status is unmounted status");
         }
 
+        //configure FileHandle necessary environments
+        FileHandle._initPrefixName(this);
+
+        //create thread executor
+        /*
+        here we use the default executorFactory for the moment;
+         */
+        if(svc_executor==null) {
+            svc_executor = Executors.newCachedThreadPool();
+        }
+        Log.d("core.Service","create a executor for core.service");
     };
 
     public enum SERVICE_STATUS{
@@ -148,13 +159,13 @@ public class Service {
     //API 级别 R
 
     /*
-    * 返回根目录（即外部存储中的內部存储路径名*/
-    public String getRootDirPathName() {
+    * 返回外部存储的根目录（即外部存储中的內部存储路径名*/
+    public String getStorageDirPathName() {
         return storage_emulated_0.getAbsolutePath();
     }
 
     //返回封装类对象的句柄
-    public FileHandle getRootDirFileHandle(){
+    public FileHandle getStorageDirFileHandle(){
         return new FileHandle(storage_emulated_0);
     }
 
@@ -212,8 +223,53 @@ public class Service {
         return temp.concat(pathname);
     }
 
-    //
-    public Thread copy(FileHandle src, String dstPath,ProgressMonitor monitor,Service_CopyOption... options){
+    /*
+    @Description: 复制文件或文件夹到指定位置，需要提供目标路径和源文件，以及监视器和复制选项
+    @Notices 请确保目标的有效性，dstPath必须是存在的路径，且是一个目录。
+    @Parameters:
+        src: 源文件句柄，可以是单个文件或者一个文件夹，当然传入的目标如果是不存在则该任务不会被执行。
+        dstPath: 目标路径，如果目标路径同样需要经过检验，需要是可写且存在的路径
+        monitor: 监视器对象，键值对类型为： <String,Long> 分别对应文件名和大小(字节)
+        allowRollBack: 用于设置当丢弃复制操作时是否进行抹去已复制内容的操作
+        options: Service_CopyOption枚举类型，目前只有RECURSIVE_COPY 和REPLACE_EXISTING可被解析
+    @Protocol:
+        任务开始后，先统计需要复制的文件的总大小totalSize，并以onProgress(K,V)函数，返回"totalSize":srcSize
+        到进度监视器中。
+        子任务开始时调用onSubTaskStart(), 并通过describeTask 设置子任务的title
+        在复制过程中，receiveMessage和onStop()都是可选路径，即不一定会被调用。
+        如果目标文件夹所在分区容量不足，同样会调用receiveMessage和onStop()通报监视器
+        生命周期函数调用概要:
+        onStart()->空间余量检测()
+        [{
+        onSubTaskStart(taskid)->describeTask(taskid,title)->
+        [onSubProgress(FileAbsolutePathName,numberOfBytesCopied)*->]
+        [
+        receiveMessage(MsgCode,message)->
+        onSubTaskStop(PROGRESS_STATUS.FAILED)
+        ->]
+        onSubTaskFinish(taskid)->
+        }*]
+        ->[receiveMessage(MsgCode,message)->onStop(PROGRESS_STATUS.FAILED)->]
+        onFinish()
+
+    abortSignal() 与abortSignal(int slot)
+    默认丢弃使用abortSignal()检测，同时使用1号终止信号槽决定回滚是否应该终止
+
+    信息码描述：
+        receiveMessage(int code,String msg):
+        0=找不到文件
+        1=目标路径不可写
+        2=目标路径不存在
+        3=源文件不可读
+        4=流关闭错误
+        5=读写错误
+        6=创建文件夹失败
+        7=空间不足
+        8=未知错误
+        9=InterruptedException
+
+     */
+    public void copy(FileHandle src, String dstPath, ProgressMonitor<String,Long> monitor, boolean allowRollBack,Service_CopyOption... options){
         int arg_len=options.length;
         boolean replace_existing,copy_attribute,not_following_link,recursive_copy;
         replace_existing=parseOption(Service_CopyOption.REPLACE_EXISTING,options);
@@ -223,15 +279,82 @@ public class Service {
 
         //testCode-------------------------------------------------------
         FileHandle dst=new FileHandle(dstPath);
-        if(src.isExist()&&dst.isExist()){
-            CopyTask copyTask=new CopyTask(0,monitor,src,dst);
-            Thread copyThread=new Thread(copyTask);
-            copyThread.start();
-            return copyThread;
+        if(!dst.isDirectory()){
+            return; //exit point
         }
-        return null;
+
+        monitor.onStart(); //onStart() 标志任务已被接受，比起在工作线程中执行onStart,可以有效防止工作线程未开始，任务因特殊原因就结束了
+        if(src.isExist()&&dst.isExist()){
+            CopyTask copyTask=new CopyTask(0,monitor,src,dst,allowRollBack);
+            svc_executor.execute(copyTask);
+        }
+        else if(!src.isExist()){
+            monitor.receiveMessage(3,"source file doesn't exist");
+            monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+            monitor.onFinished();
+        }
+        else{
+            monitor.receiveMessage(2,"Target directory doesn't exist");
+            monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+            monitor.onFinished();
+        }
+
+
         //---------------------------------------------------------------
     }
+
+    /*
+    @Description: 移动文件或文件夹到指定位置，需要提供目标路径和源文件，以及监视器
+    @Notices: 需要注意的是，务必在进行此操作前检查目标对象的有效性
+              如果设置了中断信号，需要先解除中断信号后再发送丢弃信号才可放弃该任务。
+    @Params:
+        src: 源文件句柄，可以是单个文件或者一个文件夹，当然传入的目标如果是不存在则该任务不会被执行。
+        dstPath: 目标路径，如果目标路径同样需要经过检验，需要是可写且存在的路径
+        monitor: 监视器对象，键值对类型为： <String,Long> 分别对应文件名和大小(字节)
+    @Protocol:
+        子任务开始时调用onSubTaskStart(), 并通过describeTask 设置子任务的title
+        在复制过程中，receiveMessage和onStop()都是可选路径，即不一定会被调用。
+        如果目标文件夹所在分区容量不足，同样会调用receiveMessage和onStop()通报监视器
+        生命周期函数调用概要:
+        onStart)->
+        [{
+        onSubTaskStart(taskid)->describeTask(taskid,title)->
+        [onSubProgress(FileAbsolutePathName,numberOfBytesCopied)*->]
+        [
+        receiveMessage(MsgCode,message)->
+        onSubTaskStop(PROGRESS_STATUS.FAILED)
+        ->]
+        onSubTaskFinish(taskid)->
+        }*]
+        ->[receiveMessage(MsgCode,message)->onStop(PROGRESS_STATUS.FAILED)->]
+        onFinish()
+
+
+    信息码描述：
+        receiveMessage(int code,String msg):
+        0=找不到文件
+        1=目标路径不可写
+        2=目标路径不存在
+        3=源文件不可读
+
+        //仅在不同挂载设备间复制时会出现
+        4=流关闭错误
+        5=读写错误
+        6=创建文件夹失败
+        //----------------------------
+
+        7=空间不足
+        8=未知错误
+        9=InterruptedException
+
+     */
+
+    public void move(FileHandle src, String dstPath,ProgressMonitor<String,Long> monitor){
+        //two type of dstPath
+
+    }
+
+
 
     /*
     @Description: 判断给定路径是否存在文件，如果路径不合法，则返回false
@@ -251,21 +374,24 @@ public class Service {
     @Description:判断给定路径是否合法,其中合法情况为：
     1.目标存在于：
     /storage/emulated/0
-    /storage/sd_card/
+    /storage/$sd_card$/
     2.同时目标可访问(accessible)
+    判断路径是否合法后应该加入非法字符的判断，这里没有对非法字符进行检测
+    是否含有非法字符的检测见FileHandle类的静态方法containIllegalChar(String args)
      */
     public boolean isLegalPath(String pathname){
-        String storage_0_path_prefix=getRootDirPathName();
+        String storage_0_path_prefix= getStorageDirPathName();
         String storage_sdcard_path_prefix=getSDCardRootDirectoryPathName();
         if(storage_sdcard_path_prefix==null){
             sdcard_status=SERVICE_STATUS.SDCARD_UNMOUNTED;
+            return false;
         }
 
         if(pathname.startsWith(storage_0_path_prefix)&&(!pathname.endsWith("/"))){
             return true;
         }
         else if(pathname.startsWith(storage_sdcard_path_prefix)&&(!pathname.endsWith("/"))){
-            return true&&(sdcard_status==SERVICE_STATUS.SDCARD_MOUNTED);
+            return (sdcard_status==SERVICE_STATUS.SDCARD_MOUNTED);
         }
         else{
             return false;
@@ -285,20 +411,47 @@ public class Service {
     }
 
     /*
-    @Description: 服务级别的判断一个给定路径是否在sdcard 下，如果sd卡未挂载，则会返回false
+    @Description: 以服务级别来判断一个给定路径是否在sdcard 下，如果sd卡未挂载，则会返回false
      */
-    public boolean isUnderSDCardPath(String pathname){
+    public boolean isUnderSDCardPath(@NonNull String pathname){
         String sdcard_str=getSDCardRootDirectoryPathName();
-        if(sdcard_str!=null){
-            return pathname.startsWith(sdcard_str);
-        }
-        return false;
+        return pathname.startsWith(sdcard_str);
     }
 
+    public boolean isUnderStoragePath(@NonNull String pathname){
+        String storage_pathname= getStorageDirPathName();
 
+        return pathname.startsWith(storage_pathname);
+    }
 
+    /*
+    @Description: 获取内置存储卡的存储空间的大小，单位为字节
+    如果需要转换单位或增添转换所需的工具类，参见filemanager.utiL包中的方法
+     */
+    public long getStorageTotalCapacity(){
+        return storage_emulated_0.getTotalSpace();
+    }
 
-    //.-------------------------------------------------
+    /*
+    @Description: 获取
+     */
+    public long getStorageFreeCapacity(){
+        return storage_emulated_0.getFreeSpace();
+    }
+
+    public long getStorageUsableCapacity(){
+        return storage_emulated_0.getUsableSpace();
+    }
+
+    public long getSdcardTotalCapacity(){
+        return storage_sdcard.getTotalSpace();
+    }
+
+    public long getSdcardFreeCapacity(){
+        return storage_sdcard.getFreeSpace();
+    }
+    //private zone 比起私有方法，公有方法才是更应该关注的
+    //-------------------------------------------------
 
     private static Service svc;
     private static File storage_emulated_0=null;
@@ -313,173 +466,9 @@ public class Service {
     private static SERVICE_STATUS sdcard_status;
     private static android.content.Context context;
 
+    //concurrent
+    private static ExecutorService svc_executor;
 
-    /*
-    @Description： 其实每次复制都要考虑目标目录所在卷的可用空间大小，否则
-    复制将会因为空间不足而失败，同时，参考的可用空间也是变化的，可能会出现
-    在复制的过程中出现因为空间不足而抛出异常的极限情况。这些将会作为一个测
-    试点来进行考虑。
-     */
-    protected boolean copyByStream(FileHandle src_handle,FileHandle dst_handle,ProgressMonitor<String,Long> monitor,int taskId)  {
-
-        //assume both handles are effect, and do the copy work
-
-        long sizeInBytes=src_handle.Size();
-        long numberOfBytesCopied=0;
-
-        monitor.onSubTaskStart(taskId);
-
-        try {
-            //need to make sure this operation is atomic
-            //如果目标是目录，则不能通过流复制
-            if(src_handle.isDirectory()){
-                if(!dst_handle.isExist()) { //optimize this process
-                    boolean makeDirResult = dst_handle.makeDirectory();
-                    FileInputStream fileInput=new FileInputStream(dst_handle.file);
-                    return makeDirResult;
-                }
-                else{
-                    return true; //dst_handle exists
-                }
-            }
-            else {
-
-                FileInputStream fileInput = new FileInputStream(src_handle.file);
-                FileOutputStream fileOutput = new FileOutputStream(dst_handle.file);
-                BufferedInputStream bufferInput = new BufferedInputStream(fileInput);
-                BufferedOutputStream bufferOutput = new BufferedOutputStream(fileOutput);
-
-                //4k buffer
-                int blockSize = 4*1024 * 1024;
-                byte[] buffer = new byte[blockSize];
-                int lastBlockLength = (int) (sizeInBytes % blockSize);
-                long numberOfBlocks = sizeInBytes / blockSize + 1;  //this number contains tail block, used to align blocks
-                long numberOfBlocksCopied = 0;
-
-                while (numberOfBlocksCopied < numberOfBlocks - 1) {
-                    try {
-                        bufferInput.read(buffer);
-                        bufferOutput.write(buffer);
-
-                        numberOfBlocksCopied++;
-                        numberOfBytesCopied += blockSize;
-
-                        monitor.onSubProgress(taskId, "numberOfBytesCopied", numberOfBytesCopied);
-
-                    } catch (IOException e) {
-                        //record and report to monitor
-                        Log.e("core.Service", "copying file by stream has incurred an IOException" + " Exception message: " +
-                                e.getMessage());
-                        monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
-                        return false;
-                    }
-                }
-
-                //deal with tail
-                int tailLength = (int) (sizeInBytes % blockSize);
-                if (tailLength != 0) {
-                    try {
-                        bufferInput.read(buffer, 0, tailLength);
-                        bufferOutput.write(buffer, 0, tailLength);
-
-                        numberOfBlocksCopied++;
-                        numberOfBytesCopied += blockSize;
-
-                        monitor.onSubProgress(taskId, "numberOfBytesCopied", numberOfBytesCopied);
-                    } catch (IOException e) {
-                        Log.e("core.Service", "copying file by stream has incurred an IOException" + " Exception message: " +
-                                e.getMessage());
-                        monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
-                        return false;
-                    }
-                }
-
-                fileInput.close();
-                fileOutput.close();
-                monitor.onSubTaskFinish(taskId);
-                return true;
-            }
-        }
-        catch(FileNotFoundException ex){
-            Log.e("core.Service","File not found or some wrong happen");
-            monitor.onSubTaskStop(taskId,ProgressMonitor.PROGRESS_STATUS.FAILED);
-            return false;
-        } catch (IOException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-
-    /*
-    @Description: 使用系统的服务进行复制，目前实现有点绕
-     */
-    private boolean copyBySystemDependService(){
-        return false;
-    }
-
-    /*
-    复制之前先通告monitor 任务id和任务详情，再进行复制，如果复制失败则此子任务id最终的状态
-    回以Fail 结束
-     */
-    /*
-    @Description:另外这里的监视器协议receiveMessage所接受的code代表子任务id,每个子任务都会相应地调用
-                 进度监视器的监视周期函数。
-    @Params: 1. taskId: 传入当前完成的最后一个的任务id
-            2. src_folder: 传入源文件夹的文件句柄
-            3. dst: 传入目标文件夹的文件句柄，注意不是复制以后的名字，这仅仅是个父目录的文件句柄
-            4. monitor: 进度监视器
-    @Return:  返回这次递归结束后的任务id
-     */
-    //返回该递归任务完成后的任务id,输入当前的任务id
-    private int copyByStreamRecursively(int taskId,FileHandle src_folder,FileHandle dst,ProgressMonitor<String,Long> monitor){
-       //复制文件夹这里用宽度优先算法
-        //assert src_folder and dst both are effective
-        FileHandle[] list=src_folder.listFiles();
-
-        taskId++;
-
-        //need to copy the folder first
-        FileHandle dst_handle=new FileHandle(dst,"/"+src_folder.getName());
-        FileHandle iterator_handle=dst_handle.clone();
-        monitor.receiveMessage(taskId,src_folder.getAbsolutePathName()+"->"+dst_handle.getAbsolutePathName());
-        copyByStream(src_folder,dst_handle,monitor,taskId); //create src_folder here, src_folder can either be a file
-
-
-        if(list!=null){
-
-            //breath first
-            for(int i=0;i<list.length;i++){
-                taskId++;
-                monitor.receiveMessage(taskId,list[i].getAbsolutePathName());
-                iterator_handle.pointTo(dst_handle,"/"+list[i].getName());
-                copyByStream(list[i],iterator_handle,monitor,taskId);
-            }
-
-            //filter the list and get folders
-            SimpleArrayFilter<FileHandle> simpleArrayFilter=new SimpleArrayFilter<>();
-            FileHandle[] folders;
-            Object[] rawArray=simpleArrayFilter.filter(list, new FileHandleFilter() {
-                @Override
-                public boolean accept(FileHandle handle) {
-                    return handle.isDirectory();
-                }
-            });
-            folders=new FileHandle[rawArray.length];
-            for(int i=0;i<rawArray.length;i++){
-                folders[i]=(FileHandle)rawArray[i];
-            }
-
-
-            //copy continues recursively
-            for(int i=0;i<folders.length;i++){
-                //dst_handle.pointTo();
-                taskId=copyByStreamRecursively(taskId,folders[i],dst_handle,monitor);
-            }
-        }
-        return taskId;
-
-    }
 
     private static <T> boolean parseOption(T e, T[] elements){
        T iter;
@@ -492,24 +481,339 @@ public class Service {
        return false;
     }
 
-    public class CopyTask implements Runnable{
+    private class CopyTask implements Runnable{
 
-        protected  ProgressMonitor<String,Long> monitor;
+        protected  ProgressMonitor<String,Long> task_monitor;
         protected FileHandle src,dst;
+        protected boolean needToRollBack=false;
+        protected boolean allowRollBackFlag=true;
+        protected boolean hasNotAborted=true; //prevent inconsistent
+
         int pid;
 
-        public CopyTask(int initial_taskId,ProgressMonitor<String,Long> arg_monitor,FileHandle arg_src,FileHandle arg_dst){
+        public CopyTask(int initial_taskId,ProgressMonitor<String,Long> arg_monitor,FileHandle arg_src,FileHandle arg_dst,boolean allowRollBackFlag){
             pid=initial_taskId;
-            monitor=arg_monitor;
+            task_monitor=arg_monitor;
             dst=arg_dst;
             src=arg_src;
+            this.allowRollBackFlag=allowRollBackFlag;
         }
 
         @Override
         public void run() {
-            monitor.onStart();
-            copyByStreamRecursively(pid,src,dst,monitor);
-            monitor.onFinished();
+            //check whether destination has enough space before performing copying
+            long srcSize=0L;
+            try{
+                srcSize=src._totalSize();
+            }
+            catch (IOException ioex){
+                task_monitor.receiveMessage(3,ioex.getMessage());
+                task_monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                task_monitor.onFinished();
+                return;
+            }
+            long free_space=0L;
+            if(dst.isInStorageVolume()){
+                free_space=getStorageFreeCapacity();
+            }else if(dst.isInSDCardVolume()){
+                free_space=getSdcardFreeCapacity();
+            }
+            else{
+                //should not happen
+                task_monitor.receiveMessage(1,"destination path is unreachable");
+                task_monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                task_monitor.onFinished();
+                return;
+            }
+            if(free_space<srcSize){
+                task_monitor.receiveMessage(7,"no enough space to copy files");
+                task_monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                task_monitor.onFinished();
+                return;
+            }
+
+            //working
+            //report totalSize first
+            task_monitor.onProgress("totalSize",srcSize);
+            copyByStreamRecursively(pid,src,dst,task_monitor);
+
+            if(needToRollBack && allowRollBackFlag && hasNotAborted){
+                rollBack();
+            }
+
+            task_monitor.onFinished();
+        }
+
+
+
+        /*
+        @Notice： 其实每次复制都要考虑目标目录所在卷的可用空间大小，否则
+        复制将会因为空间不足而失败，同时，参考的可用空间也是变化的，可能会出现
+        在复制的过程中出现因为空间不足而抛出异常的极限情况。这些将会作为一个测
+        试点来进行考虑。
+        */
+        protected boolean copyByStream(FileHandle src_handle,FileHandle dst_handle,ProgressMonitor<String,Long> monitor,int taskId)  {
+
+            //assume both handles are effect, and do the copy work
+            if(!monitor.abortSignal()&&hasNotAborted) {
+
+                long sizeInBytes = src_handle.Size();
+                long numberOfBytesCopied = 0;
+
+                monitor.onSubTaskStart(taskId);
+                monitor.describeTask(taskId, src_handle.getAbsolutePathName()); //notify monitor what this taskId is mapped to
+                try {
+                    //need to make sure this operation is atomic
+                    //如果目标是目录，则不能通过流复制
+                    if (src_handle.isDirectory()) {
+                        if (!dst_handle.isExist()) { //optimize this process
+                            boolean makeDirResult = dst_handle.makeDirectory();
+                            if (!makeDirResult) {
+                                monitor.receiveMessage(6, "creating directory fails");
+                                monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED); //createDirectory fails
+                            }
+                            monitor.onSubTaskFinish(taskId);
+                            return makeDirResult;
+                        } else {
+                            monitor.onSubTaskFinish(taskId);
+                            return true; //dst_handle exists
+                        }
+                    } else {
+
+                        FileInputStream fileInput = new FileInputStream(src_handle.file);
+                        FileOutputStream fileOutput = new FileOutputStream(dst_handle.file);
+                        BufferedInputStream bufferInput = new BufferedInputStream(fileInput);
+                        BufferedOutputStream bufferOutput = new BufferedOutputStream(fileOutput);
+
+                        //4k buffer
+                        int blockSize = 4 * 1024 * 1024;
+                        byte[] buffer = new byte[blockSize];
+
+                        long numberOfBlocks = sizeInBytes / blockSize + 1;  //this number contains tail block, used to align blocks
+                        long numberOfBlocksCopied = 0;
+
+                        while (numberOfBlocksCopied < numberOfBlocks - 1) {
+
+                            waitUntilNotInterrupt();//here is a waiting point，abortSignal is invalid here
+
+                            try {
+                                bufferInput.read(buffer);
+                                bufferOutput.write(buffer);
+
+                                numberOfBlocksCopied++;
+                                numberOfBytesCopied += blockSize;
+
+                                monitor.onSubProgress(taskId, "numberOfBytesCopied", numberOfBytesCopied);
+
+                            } catch (IOException e) {
+                                //record and report to monitor
+                                Log.e("core.Service", "copying file by stream has incurred an IOException" + " Exception message: " +
+                                        e.getMessage());
+                                monitor.receiveMessage(5, e.getMessage());
+                                monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
+                                return false;
+                            }
+                        }
+
+                        //deal with tail
+                        int tailLength = (int) (sizeInBytes % blockSize);
+                        if (tailLength != 0) {
+                            try {
+                                bufferInput.read(buffer, 0, tailLength);
+                                bufferOutput.write(buffer, 0, tailLength);
+
+                                numberOfBlocksCopied++;
+                                numberOfBytesCopied += blockSize;
+
+                                monitor.onSubProgress(taskId, "numberOfBytesCopied", numberOfBytesCopied);
+                            } catch (IOException e) {
+                                Log.e("core.Service", "copying file by stream has incurred an IOException" + " Exception message: " +
+                                        e.getMessage());
+                                monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
+                                return false;
+                            }
+                        }
+
+                        fileInput.close();
+                        fileOutput.close();
+                        monitor.onSubTaskFinish(taskId);
+                        return true;
+                    }
+                } catch (FileNotFoundException ex) {
+                    Log.e("core.Service", "File not found or some wrong happen");
+                    monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
+                    monitor.receiveMessage(0, "File not found");
+                    return false;
+                } catch (IOException e) {
+                    //should not happen
+                    monitor.receiveMessage(4, e.getMessage());
+                    monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
+                    return false;
+                }
+            }
+            else{
+                //abort signal arrives, but doesn't report message
+                hasNotAborted=false;
+                return false;
+            }
+        }
+
+
+        /*
+        @Description: 使用系统的服务进行复制，暂时不予以考虑
+         */
+        private boolean copyBySystemDependedService(){
+            return false;
+        }
+
+
+        /*
+        复制之前先通告monitor 任务id和任务详情，再进行复制，如果复制失败则此子任务id最终的状态会以Fail 结束
+         */
+    /*
+    @Description:另外这里的监视器协议receiveMessage所接受的code代表子任务id,每个子任务都会相应地调用
+                 进度监视器的监视周期函数。
+    @Params: 1. taskId: 传入当前完成的最后一个的任务id
+            2. src_folder: 传入源文件夹的文件句柄
+            3. dst: 传入目标文件夹的文件句柄，注意不是复制以后的名字，这仅仅是个父目录的文件句柄
+            4. monitor: 进度监视器
+    @Return:  返回这次递归结束后的任务id
+     */
+        //返回该递归任务完成后的任务id,输入当前的任务id
+        private int copyByStreamRecursively(int taskId,FileHandle src_folder,FileHandle dst,ProgressMonitor<String,Long> monitor){
+            //复制文件夹这里用宽度优先算法
+            //assert src_folder and dst both are effective
+            if(!task_monitor.abortSignal()&&hasNotAborted) {
+
+                FileHandle[] list = src_folder.listFiles();
+
+                taskId++;
+
+                //need to copy the folder first
+                FileHandle dst_handle = new FileHandle(dst, "/" + src_folder.getName());
+                FileHandle iterator_handle = dst_handle.clone();
+                boolean src_folder_copy_result = copyByStream(src_folder, dst_handle, monitor, taskId); //create src_folder here, src_folder can either be a file
+
+                //@notice: without src_folder the following files contained in src_folder cannot be created
+                //error report has been completed in copyByStream(), so there is no need to report again;
+                if (list != null && src_folder_copy_result) {
+
+                    //breath first
+                    for (int i = 0; i < list.length; i++) {
+                        taskId++;
+                        iterator_handle.pointTo(dst_handle, "/" + list[i].getName());
+                        copyByStream(list[i], iterator_handle, monitor, taskId);
+                    }
+
+                    //filter the list and get folders
+
+                    FileHandle[] folders;
+                    Object[] rawArray = SimpleArrayFilter.filter(list, new FileHandleFilter() {
+                        @Override
+                        public boolean accept(FileHandle handle) {
+                            return handle.isDirectory();
+                        }
+                    });
+                    folders = new FileHandle[rawArray.length];
+                    for (int i = 0; i < rawArray.length; i++) {
+                        folders[i] = (FileHandle) rawArray[i];
+                    }
+
+
+                    //copy continues recursively
+                    for (int i = 0; i < folders.length; i++) {
+                        //dst_handle.pointTo();
+                        taskId = copyByStreamRecursively(taskId, folders[i], dst_handle, monitor);
+                    }
+                }
+            }
+            else{
+                needToRollBack=true;
+                hasNotAborted=false;
+            }
+
+            return taskId;
+
+        }
+
+        private void waitUntilNotInterrupt(){
+            while(task_monitor.interruptSignal()){
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    task_monitor.receiveMessage(9,e.getMessage());
+                    task_monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                    return;
+                }
+            }
+        }
+
+        //当前撤销操作暂时不提供成功验证。
+        private void rollBack() {
+
         }
     }
+
+    private class MoveTask implements Runnable {
+        private ProgressMonitor<String,Long> monitor;
+        private FileHandle src;
+        private String dstPath;
+        private boolean allowRollBack=true;
+        private boolean needToRollBack=false;
+
+        public MoveTask(FileHandle arg_src,String dstPath,ProgressMonitor<String,Long> monitor){
+            this.src=arg_src;
+            this.dstPath=dstPath;
+            this.monitor=monitor;
+        }
+
+
+        @Override
+        public void run() {
+            if(isInSameVolume(src,dstPath)){
+                //rewrite absolute path directly
+                if(!monitor.abortSignal()){
+                    src.file.renameTo(new File(dstPath));
+                    monitor.onFinished();
+                }
+            }
+            else{
+                //copy first then delete
+
+//                FileHandle dst=new FileHandle(dstPath);
+//                CopyTask cpTask=new CopyTask(0,internal_copy_monitor,src,dst,true);
+//                cpTask.run();
+//
+//
+//                //check internal_copy_monitor's status to ensure result
+//                if(internal_copy_monitor.getProgressStatus()!= ProgressMonitor.PROGRESS_STATUS.COMPLETED){
+//                    //something wrong happens, report to upper
+//
+//                }
+//
+
+            }
+
+        }
+
+        private void rollBack(){
+
+        }
+
+        //判断文件所在路径是否在dstPath所指定的卷中
+        private boolean isInSameVolume(FileHandle f1,String dstPath){
+            boolean[] f1_Volumeb={
+                f1.isInStorageVolume(),f1.isInSDCardVolume()
+            };
+            boolean[] dst_Volumeb= {
+                    dstPath.startsWith(f1.getVolumePrefix()) && f1_Volumeb[0],
+                    dstPath.startsWith(f1.getVolumePrefix()) && f1_Volumeb[1]
+            };
+
+            return (f1_Volumeb[0]&&dst_Volumeb[0]) || (f1_Volumeb[1]&&dst_Volumeb[1]);
+        }
+
+
+    }
 }
+

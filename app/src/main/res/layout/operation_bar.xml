@@ -10,9 +10,9 @@
     android:layout_gravity="center"
     android:minWidth="300dp"
     android:background="@color/white"
-    android:gravity="center"
-
+    android:gravity="center_horizontal"
     android:orientation="horizontal"
+
     >
 
     <RelativeLayout
@@ -20,7 +20,8 @@
         android:layout_height="match_parent"
         android:background="@color/white"
         android:gravity="center"
-        android:paddingVertical="1dp">
+        android:paddingVertical="1dp"
+        >
 
         <ImageView
             android:id="@+id/operation_icon"
@@ -33,6 +34,29 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_below="@id/operation_icon"
+            android:text=""
+            android:textColor="@color/pureBlack"
+            android:textSize="15dp" />
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:layout_width="50dp"
+        android:layout_height="match_parent"
+        android:background="@color/white"
+        android:gravity="center"
+        android:paddingVertical="1dp">
+
+        <ImageView
+            android:id="@+id/operation_icn"
+            android:layout_width="25dp"
+            android:layout_height="25dp" />
+
+        <TextView
+            android:id="@+id/operation_nme"
+            android:textAlignment="center"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/operation_icn"
             android:text=""
             android:textColor="@color/pureBlack"
             android:textSize="15dp" />

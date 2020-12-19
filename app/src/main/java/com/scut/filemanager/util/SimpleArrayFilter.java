@@ -1,11 +1,13 @@
 package com.scut.filemanager.util;
 import android.util.Log;
 
+import com.scut.filemanager.util.protocols.Filter;
+
 import java.util.LinkedList;
 
-public class SimpleArrayFilter<E>{
+public class SimpleArrayFilter{
 
-    public E[] filter(E[] inputElements,Filter<E> eFilter){
+     static public <E> E[] filter(E[] inputElements, Filter<E> eFilter){
 
         LinkedList<E> linkedList=new LinkedList<E>();
         for(int i=0;i<inputElements.length;i++){
@@ -20,9 +22,24 @@ public class SimpleArrayFilter<E>{
         }
         //处理类转换异常
         catch (ClassCastException castException){
-            Log.e(this.getClass().getName(),castException.getMessage());
+            Log.e(SimpleArrayFilter.class.getName(),castException.getMessage());
             return null;
         }
 
+    }
+
+
+
+
+    static public <E> boolean hasElementByLinearSearch(E[] elements,E arge){
+        for (E e:
+            elements) {
+            if(e.equals(arge)){
+                return true;
+            }
+        }
+
+
+        return false;
     }
 }

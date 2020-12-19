@@ -1,7 +1,6 @@
-package com.scut.filemanager.ui;
+package com.scut.filemanager.ui.adapter;
 
 
-import android.content.Context;
 import android.os.Build;
 
 import android.util.Log;
@@ -20,11 +19,16 @@ import androidx.annotation.RequiresApi;
 
 import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
+import com.scut.filemanager.core.FileHandleFilter;
+import com.scut.filemanager.util.SimpleArrayFilter;
 import com.scut.filemanager.util.Sorter;
+import com.scut.filemanager.util.TextFormatter;
+import com.scut.filemanager.util.protocols.DisplayFolderChangeResponder;
 
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 
 
 /*
@@ -39,6 +43,7 @@ public class SimpleListItemAssembler extends BaseAdapter {
     private java.util.ArrayList<Boolean> selectedTable;
     private int item_layout_id;
     private LayoutInflater inflater;
+    private List<DisplayFolderChangeResponder> responders=new ArrayList<>();
 
     private Comparator<FileHandle> comparator=null;
 
@@ -77,6 +82,12 @@ public class SimpleListItemAssembler extends BaseAdapter {
         selectedTable=new ArrayList<>();
         this.refreshSelectedTable();
 
+    }
+
+    public void registerFolderChangedResponder(DisplayFolderChangeResponder responder){
+        if(!responders.contains(responder)){
+            responders.add(responder);
+        }
     }
 
     /*
@@ -171,10 +182,10 @@ public class SimpleListItemAssembler extends BaseAdapter {
             TextView item_textView=convertView.findViewById(R.id.textview_item_name);
             TextView item_detail_textView=convertView.findViewById(R.id.textview_item_detail);
 
-                detailString.append(" size: "+com.scut.filemanager.util.textFormatter.byteCountDescriptionConvert_longToString(
+                detailString.append(" size: "+ TextFormatter.byteCountDescriptionConvert_longToString(
                        "KB", item.Size(),1
                 )+"KB "+
-                        com.scut.filemanager.util.textFormatter.timeDescriptionConvert_simpleLongToString(
+                        TextFormatter.timeDescriptionConvert_simpleLongToString(
                                 item.getLastModifiedTime()
                         )
                 );
@@ -221,6 +232,7 @@ public class SimpleListItemAssembler extends BaseAdapter {
         checkBoxVisibility=View.INVISIBLE;
         refreshSelectedTable();
         notifyDataSetChanged();
+        dispatchFolderChangedEventToResponders();
     }
 
     public static void  setDefaultComparator(Comparator<FileHandle> comparator){
@@ -273,6 +285,18 @@ public class SimpleListItemAssembler extends BaseAdapter {
         notifyDataSetChanged();
     }
 
+    public void setListAssembled(FileHandle[] listToAssemble){
+        list.clear();
+        list.addAll(Arrays.asList(SimpleArrayFilter.filter(listToAssemble, new FileHandleFilter() {
+            @Override
+            public boolean accept(FileHandle handle) {
+                return handle!=null;
+            }
+        })));
+        notifyDataSetChanged();
+        dispatchFolderChangedEventToResponders();
+
+    }
 
     private void updateItemSet() {
         int item_count=folder.getFileCount();
@@ -293,6 +317,12 @@ public class SimpleListItemAssembler extends BaseAdapter {
         }
     }
 
+    private void dispatchFolderChangedEventToResponders(){
+        for (DisplayFolderChangeResponder responder:responders
+             ) {
+            responder.respondTo(this.folder);
+        }
+    }
 
 
 

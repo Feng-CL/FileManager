@@ -2,11 +2,20 @@ package com.scut.filemanager.core;
 
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
+import com.scut.filemanager.core.concurrent.SharedThreadPool;
+
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.RunnableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 
 public class FileHandle {
@@ -62,12 +71,12 @@ public class FileHandle {
         if(dir.isDirectory()){
             file=new File(dir.getAbsolutePathName()+pathname);
             AbsolutePathName=dir.getAbsolutePathName()+pathname;
-            CanonicalPathName=dir.getCanonicalPathName()+pathname; //notice this variable of how it comes
+            //CanonicalPathName=dir.getCanonicalPathName()+pathname; //notice this variable of how it comes
         }
         else{
             file=dir.file;
             AbsolutePathName=dir.getAbsolutePathName();
-            CanonicalPathName=dir.getCanonicalPathName();
+            //CanonicalPathName=dir.getCanonicalPathName();
         }
     }
 
@@ -179,29 +188,89 @@ public class FileHandle {
 
 
     /*
-    统计文件夹包含项大小时，可能会阻塞主线程，因此这里将它多线程化。
-    启动该函数时，会另起一个线程，通知监控器统计的结果，这里暂时返回空值
-    返回该文件总大小，如果是目录则计量目录下的文件大小
-    该方法的实现需要确保线程安全,为了确保该函数有返回结果，需要阶段性地反馈信息
-    如果该函数统计超时，则需要通知父线程，即监控器所在线程该消息。
+    @Description: 统计文件夹的总大小时，可能会阻塞主线程，因此这里将它线程化。
+    @Return: Future<Integer> 通过Future<Long> 可尝试取消任务并获取实时计算信息
+    @Protocol:
+        关于返回对象Future<Long> 的接口描述：
+        > boolean cancel(boolean mayInterruptIfRunning)
+            发出中断信号，并返回发出中断信号后，到函数结束时的取消结果，该方法未非阻塞方法，如果需要判断是否已经中断
+            需要通过isCancelled() 进行重复检测
+            调用该方法后，isDone()将返回true
+        > isCancelled()
+            判断取消任务是否成功，如果该方法返回true,则isDone()方法也会返回true
+        > isDone()
+            判断任务是否完成
+        > Long get()
+            获取当前已统计的文件数目，需要注意的是，如果cancel() 被调用，则该方法返回值将可能
+            就此稳定下来
+        > Long get(long l,TimeUnit timeUnit) throws InterruptException
+            使当前线程等待一段时间后，再去获取统计值
+            timeUnit 可设定多种值{
+                    DAYS
+                    时间单位代表二十四小时
+                    HOURS
+                    时间单位代表六十分钟
+                    MICROSECONDS
+                    时间单位代表千分之一毫秒
+                    MILLISECONDS
+                    时间单位为千分之一秒
+                    MINUTES
+                    时间单位代表60秒
+                    NANOSECONDS
+                    时间单位代表千分之一千分之一
+                    SECONDS
+                    时间单位代表一秒
+            }
+            如果在等待过程中，这个线程被中断，get方法会抛出InterruptException,使用时应注意
+            此异常的合理处理
+
     */
-    public void totalSize(ProgressMonitor<String,Long> monitor) throws IOException {
-        FileSizeCounterTask fileSizeCounter=new FileSizeCounterTask(monitor,this );
-        Thread thread_SizeCounter=new Thread(fileSizeCounter);
-        thread_SizeCounter.start();
+    public Future<Long> totalSize(){
+        FileSizeCounterTask fileSizeCounter=new FileSizeCounterTask(this );
+        sharedThreadPool.executeTask(fileSizeCounter,SharedThreadPool.PRIORITY.LOW);
+        return fileSizeCounter;
     };
 
     /*
-    @Description: 该方法用于尝试获取一次正则路径。
+    @Description: totalSize的阻塞方法,一般不建议在主线程中使用
      */
-    public void tryRetrieveCanonicalPath(){
+    public long _totalSize() throws IOException{
+        if(isDirectory()){
+            long sum=this.Size();
+            FileHandle[] list_of_files=listFiles();
+            if(list_of_files!=null) {
+                for (int i = 0; i < list_of_files.length; i++) {
+                    sum+=list_of_files[i]._totalSize();
+                }
+                return sum;
+            }
+            else{
+                //should not happen
+                throw new IOException("reading directory failed");
+            }
+
+        }
+        else{
+            return this.Size();
+        }
+    }
+
+    /*
+    @Description: 该方法用于尝试获取一次正则路径，获取正则路径需要进行一次IO操作，但这里的实现
+    把可能的IO异常限制在此方法内，并返回异常错误信息
+    @Return: 无错误时返回值为null,有错误则返回错误信息。
+     */
+    public String tryRetrieveCanonicalPath(){
+        String exMsg=null;
         try{
             CanonicalPathName=file.getCanonicalPath();
         }
         catch(IOException ioex){
             CanonicalPathName=null;
+            exMsg=ioex.getMessage();
             Log.e("FileHandle","tryRetrieveCanonicalPath failed");
         }
+        return exMsg;
     }
 
 
@@ -267,39 +336,70 @@ public class FileHandle {
         }
     }
 
+    public boolean isAndroidRoot(){
+        return isStorageRoot()||isSdCardRoot();
+    }
+
+    public boolean isStorageRoot(){
+        return AbsolutePathName.contentEquals(storage0_prefix);
+    }
+
+    public boolean isSdCardRoot(){
+        if(sdcard_prefix!=null){
+            return AbsolutePathName.contentEquals(sdcard_prefix);
+        }
+        return false;
+    }
+
     /*
-    @Description： 获取文件夹下及其子目录的所有总数,该方法为非阻塞方法，但需要设定进度监控器。
-    进度监控器会被定期汇报每个文件夹项的文件总数，因此使用到的进度的汇报方式时，需要将
-    整个onProgress设定为临界区。
-     */
-    public void getFileTotalCount(ProgressMonitor<String,Integer> monitor){
-        monitor.onStart();
-        ExecutorService executor=Executors.newFixedThreadPool(2);
-        FileHandle[] dirs=listFiles(new FileHandleFilter() {
-            @Override
-            public boolean accept(FileHandle handle) {
-                return handle.isDirectory();
+    @Description: 统计文件夹包含项大小时，可能会阻塞主线程，因此这里将它线程化。
+    @Return: Future<Integer> 通过Future<Integer> 可尝试取消任务并获取实时计算信息
+    @Protocol:
+        关于返回对象Future<Integer> 的接口描述：
+        > boolean cancel(boolean mayInterruptIfRunning)
+            发出中断信号，并返回发出中断信号后，到函数结束时的取消结果，该方法未非阻塞方法，如果需要判断是否已经中断
+            需要通过isCancelled() 进行重复检测
+            调用该方法后，isDone()将返回true
+        > isCancelled()
+            判断取消任务是否成功，如果该方法返回true,则isDone()方法也会返回true
+        > isDone()
+            判断任务是否完成
+        > Integer get()
+            获取当前已统计的文件数目，需要注意的是，如果cancel() 被调用，则该方法返回值将可能
+            就此稳定下来
+        > Integer get(long l,TimeUnit timeUnit) throws InterruptException
+            使当前线程等待一段时间后，再去获取统计值
+            timeUnit 可设定多种值{
+                    DAYS
+                    时间单位代表二十四小时
+                    HOURS
+                    时间单位代表六十分钟
+                    MICROSECONDS
+                    时间单位代表千分之一毫秒
+                    MILLISECONDS
+                    时间单位为千分之一秒
+                    MINUTES
+                    时间单位代表60秒
+                    NANOSECONDS
+                    时间单位代表千分之一千分之一
+                    SECONDS
+                    时间单位代表一秒
             }
-        });
-        int count=file.listFiles().length;
-        if(dirs!=null){
-            count-=dirs.length;
-            for(int i=0;i<dirs.length;i++){
-                FileCounterTask counter=new FileCounterTask(monitor,dirs[i]);
-                executor.execute(counter);
-            }
-        }
-        else{
-            monitor.onProgress(getName(),count);
-            monitor.onFinished();
-        }
+            如果在等待过程中，这个线程被中断，get方法会抛出InterruptException,使用时应注意
+            此异常的合理处理
+
+    */
+    public Future<Integer> getFileTotalCount(){
+        FileCounterTask counterTask=new FileCounterTask(this);
+        sharedThreadPool.executeTask(counterTask,SharedThreadPool.PRIORITY.LOW);
+        return counterTask;
     }
 
 
     /*
     @Description: 获取文件夹下的及其子目录的所有总数,该方法为阻塞方法，不建议直接使用
      */
-    public int getFileTotalCount(){
+    public int _getFileTotalCount(){
         int count=0;
         if(isDirectory()){
             count=file.listFiles().length;
@@ -311,7 +411,7 @@ public class FileHandle {
             });
             if(dirs!=null) {
                 for (int i = 0; i < dirs.length; i++) {
-                    count = count + dirs[i].getFileTotalCount() - 1;
+                    count = count + dirs[i]._getFileTotalCount() - 1;
                 }
             }
         }
@@ -335,41 +435,54 @@ public class FileHandle {
     }
 
     /*
-    @Description: 通过字符串的形式检查该文件句柄所对应的抽象路径是否已经到达可读写的根目录
-    @Notice： 需要注意的是，为了解耦，一般情况下，filehandle 并不知道系统的内部存储卡和sd卡等的
+    @Description: 通过字符串的形式检查该文件句柄所对应的抽象路径是否是可读写的根目录的其一
+    @Notice: 只有当core.Service类初始化后此函数才发挥作用。
     @Return: 返回false的情况：1.不是可操作的根目录 2. 无法通过抽象路径的绝对路径名找到正则路径名
      */
-    public boolean isAndroidRoot(){
-        return isStorageRoot()||isSDcardRoot();
+
+    public boolean isInAndroidVolume(){
+        return isInStorageVolume()||isInSDCardVolume();
     }
 
 
 
-    public boolean isStorageRoot(){
-        if(CanonicalPathName!=null){
-            return CanonicalPathName.equals(FileHandle.storage0_prefix);
-        }
-        else{
-            return false;
-        }
+    public boolean isInStorageVolume(){
+        return AbsolutePathName.startsWith(storage0_prefix);
     }
 
 
     /*
         @Description: 判断该文件句柄是否对应着sd卡根目录
      */
-    public boolean isSDcardRoot(){
-        if(CanonicalPathName!=null){
-            //在不清楚sd卡的型号下，只能暂时通过排除法来判断
-            String regex="/storage/[^/]+";
-            boolean match=CanonicalPathName.matches(regex);
-            return match&&canRead(null);
-        }
-        else{
+
+    public boolean isInSDCardVolume(){
+        if(sdcard_prefix==null){
             return false;
         }
+        return AbsolutePathName.startsWith(sdcard_prefix);
     }
 
+    /*
+    @Description: 返回目标所在的挂载点
+    @Return: NotNull , 服务未初始化时返回空字符串
+     */
+    public String getVolumePrefix(){
+        if(AbsolutePathName.startsWith(storage0_prefix)){
+            return storage0_prefix;
+        }
+        else if(sdcard_prefix!=null){
+            if(AbsolutePathName.startsWith(sdcard_prefix)) {
+                return sdcard_prefix;
+            }
+            else {
+                return "";
+            }
+        }
+        else{
+            return "/";
+        }
+
+    }
     //FileHandle封装下的可空文件句柄判断
     @Deprecated
     public boolean isNull(){
@@ -419,7 +532,7 @@ public class FileHandle {
     应该总是注意检查该函数的返回结果来确认改名是否成功。
     @Return: 如果返回false 则说明存在同名文件，或者文件受保护。
      */
-    synchronized boolean rename(String newName) throws IOException {
+    synchronized boolean rename(String newName){
         String NewFileName=getParentName();
         NewFileName=NewFileName.concat("/"+newName);
         File renamed_file=new File(NewFileName);
@@ -474,15 +587,26 @@ public class FileHandle {
     }
 
     /*
-    @Description: 递归删除文件夹,需要为其指定一个进度监视器,在第一版中，暂时将线程分散管理。
+    @Description: 递归删除文件夹,需要为其指定一个进度监视器,具体进度监视进度协议见下
+    @Protocol: 监视器接口函数的生命周期调用：
+    onStart()->[receiveMessage(message:String)->onStop(FAILED)]
+    ->
+    {
+    onSubTaskStart(taskId)->onSubProgress(taskid:int,pathname:String,result_of_delete:boolean)
+    ->[onSubTaskStop(PROGRESS_STATUS.FAILED)]->onSubTaskFinish(taskId)
+    }*
+    ->
+    [onStop(PROGRESS_STATUS.FAILED)]->onFinish()
+    简要的说明，每次删除每个空文件夹或单个文件时，都会调用onSubProgress()通告该文件或空文件夹的删除结果,
+    当递归过程结束后，会根据删除文件的结果，如果删除不完全，则调用onStop()通报该任务为Failed，失败状态。
+    不管任务是否失败，都会调用onFinish()标志该任务线程已结束。
     @Exception: 检测到该文件句柄所代表抽象路径含有文件名的非法字符时，会调用monitor 的onStop方法通告
     其删除线程当前的状态，并向monitor发送错误信息。
      */
     synchronized public void deleteRecursively(ProgressMonitor<String,Boolean> monitor){
         if(!FileHandle.containsIllegalChar(getAbsolutePathName())) {
             FileDeleteSingleThreadTask task = new FileDeleteSingleThreadTask(monitor, this);
-            Thread deleteThread = new Thread(task);
-            deleteThread.start();
+            sharedThreadPool.executeTask(task,SharedThreadPool.PRIORITY.MEDIUM);
         }
         else{
             //deal with exception
@@ -492,8 +616,10 @@ public class FileHandle {
     }
 
 
-    //如果该句柄是文件，则返回空，否则返回目录下的项目句柄s。
-    //获取目录下的项目句柄
+    /*
+    @Description: 如果该文件句柄是目录，则返回一个FileHandle数组,
+    如果遇到IO 错误或者该文件句柄不代表目录，则返回null
+     */
     public FileHandle[] listFiles() {
         if(file.isDirectory()){
             File[] list=file.listFiles();
@@ -566,9 +692,11 @@ public class FileHandle {
 
     //-----------------static methods---------------------------
 
+    public static FileHandle superHandle=new FileHandle("/storage/super"); //a special handle
     private static String storage0_prefix="/storage/emulated/0";
     private static String storage_prefix="/storage";
-
+    private static String sdcard_prefix=null;
+    private static SharedThreadPool sharedThreadPool=SharedThreadPool.getInstance();
 
     /*
     @Description： 检查该FileHandle所对应的抽象路径名是否含有非法字符
@@ -579,6 +707,9 @@ public class FileHandle {
         return match;
     }
 
+    public static void _initPrefixName(Service svc){
+        sdcard_prefix=svc.getSDCardRootDirectoryPathName();
+    }
     //---------------分割线--------------------------------
 
 
@@ -587,60 +718,164 @@ public class FileHandle {
 
     //private helper class
 
-    private class FileCounterTask implements Runnable{
+    private class FileCounterTask implements RunnableFuture<Integer> {
 
         private FileHandle handle;
-        private ProgressMonitor<String,Integer> monitor;
 
-        public FileCounterTask(ProgressMonitor<String,Integer> arg_monitor, FileHandle arg_handle){
-            monitor=arg_monitor;
+        private int count=0;
+        private boolean cancelSignal=false;
+        private boolean cancelled=false;
+        private boolean done=false;
+
+
+        public FileCounterTask(FileHandle arg_handle){
+
             handle=arg_handle;
+            count=0;
         }
 
         @Override
         public void run() {
-            if(monitor.abortSignal()){
-                int count = handle.getFileTotalCount();
-                monitor.onProgress(handle.getName(),Integer.valueOf(count));
+            FilesCountHelperFunction(handle);
+            done=true;
+        }
+
+        private void FilesCountHelperFunction(FileHandle dir){
+            if(!cancelSignal) {
+                FileHandle[] files_of_dir = dir.listFiles();
+                int this_dir_count = files_of_dir.length;
+                if (files_of_dir != null) {
+                    FileHandle[] folders_of_dir = dir.listFiles(new FileHandleFilter() {
+                        @Override
+                        public boolean accept(FileHandle handle) {
+                            return handle.isDirectory();
+                        }
+                    });
+                    this_dir_count -= folders_of_dir.length;
+                    for (int i = 0; i < folders_of_dir.length; i++) {
+                        FilesCountHelperFunction(folders_of_dir[i]);
+                    }
+                }
+                count += this_dir_count;
+            }
+            else if(!cancelled){
+                cancelled=true;
+                done=true;
             }
         }
 
+        /*
+        注意
+         */
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning) {
+            cancelSignal=mayInterruptIfRunning;
+            done=true;
+            return cancelled;
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return cancelled;
+        }
+
+        @Override
+        public boolean isDone() {
+            return done;
+        }
+
+
+        @Override
+        public Integer get() {
+            return count;
+        }
+        /*
+        如果需要等待最多在给定的时间计算完成，然后检索其结果（如果可用）。
+        参数
+        timeout - 等待的最长时间
+        unit - 超时参数的时间单位
+        结果:
+           统计结果
+        异常:
+           InterruptedException - 如果当前线程在等待时中断
+
+
+         */
+        @Override
+        public Integer get(long l, TimeUnit timeUnit)throws InterruptedException{
+            l=timeUnit.toMillis(l);
+            Thread.sleep(l);
+            return count;
+        }
     }
 
-    private class FileSizeCounterTask implements Runnable{
+    /*
+    监视器方法在此处已经弃用，比起频繁地通告，主动获取的效率会更高
+     */
+    private class FileSizeCounterTask implements RunnableFuture<Long>{
 
         private FileHandle rootHandle=null;
         private long sizeAccumulated=0;  //no need to synchronize because this version of SizeCounter is blocking
-        private ProgressMonitor<String,Long> monitor;
-        public long getSizeAccumulated(){
-            return sizeAccumulated;
-        }
+        private boolean hasSetStopBit=false;
+        private boolean cancelSignal=false;
+        private boolean cancelled=false;
+        private boolean done=false;
 
-        public FileSizeCounterTask(ProgressMonitor<String,Long> arg_monitor, FileHandle fileHandle){
-            monitor=arg_monitor;
+        public FileSizeCounterTask(FileHandle fileHandle){
             rootHandle=fileHandle;
         }
         @Override
         public void run() {
-            monitor.onStart();
             totalSizeHelperFunction(rootHandle);
-            monitor.onFinished();
+            done=true;
         }
 
         private void totalSizeHelperFunction(FileHandle handle)  {
+            if(!cancelSignal) {
             FileHandle[] list_item = handle.listFiles();
             sizeAccumulated += handle.Size();
-            monitor.onProgress("sizeAccumulated",sizeAccumulated);
-            if(!monitor.abortSignal()) {
                 if (list_item != null) { //list_item is not null directory
                     for (int i = 0; i < list_item.length; i++) {
                         totalSizeHelperFunction(list_item[i]); //add cumulatively recursively
                     }
                 }
             }
+            else if(!cancelled){
+                cancelled=true;
+                done=true;
+            }
+
         }
 
 
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning) {
+            cancelSignal=mayInterruptIfRunning;
+            done=true;
+            return cancelled;
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return cancelled;
+        }
+
+        @Override
+        public boolean isDone() {
+            return done;
+        }
+
+        @Override
+        public Long get() {
+            return sizeAccumulated;
+        }
+
+        @Override
+        public Long get(long l, TimeUnit timeUnit) throws  InterruptedException {
+            l=timeUnit.toMillis(l);
+            java.lang.Thread.sleep(l);
+            return sizeAccumulated;
+        }
     }
 
     private class FileDeleteSingleThreadTask implements Runnable{
@@ -648,8 +883,8 @@ public class FileHandle {
         private FileHandle node;
         private ProgressMonitor<String,Boolean> monitor;
         private boolean delete_result;
-        private boolean interrupt_deletion=false;
-
+        private boolean hasSetStopBit=false;
+        private int subTaskId=0;
         public FileDeleteSingleThreadTask(ProgressMonitor<String,Boolean> arg_monitor,FileHandle startNode){
             node=startNode;
             monitor=arg_monitor;
@@ -658,38 +893,71 @@ public class FileHandle {
         @Override
         public void run() {
             monitor.onStart();
-            deleteRecursively(node);
+            deleteRecursivelyHelper(node);
             monitor.onProgress(node.getAbsolutePathName(),delete_result);
-            if(!interrupt_deletion) {
-                monitor.onFinished();
+            if(!delete_result){
+                monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
             }
+            monitor.onFinished();
+
         }
 
-        synchronized boolean deleteRecursively(FileHandle handle){
+        synchronized boolean deleteRecursivelyHelper(FileHandle handle){
             if(!monitor.abortSignal()) {
+                waitUntilFalse();
                 FileHandle[] handles = handle.listFiles();
                 //handle is a file or an empty folder
                 if (handles == null) {
+                    monitor.onSubTaskStart(subTaskId);
                     boolean result = handle.delete();
-                    monitor.onProgress(handle.getAbsolutePathName(), result);
+                    monitor.onSubProgress(subTaskId,handle.getAbsolutePathName(), result);
+                    if(!result){
+                        monitor.onSubTaskStop(subTaskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
+                    }
+                    monitor.onSubTaskFinish(subTaskId);
+                    subTaskId++;
+
                     delete_result = delete_result && result;
                     return result;
                 }
 
                 boolean folder_delete_result = true;
+                //delete files under folder first
                 for (int i = 0; i < handles.length; i++) {
-                    folder_delete_result = folder_delete_result && deleteRecursively(handles[i]);
-                    folder_delete_result = folder_delete_result && handle.delete();
-                    monitor.onProgress(handle.getAbsolutePathName(), folder_delete_result);
+                    folder_delete_result = folder_delete_result && deleteRecursivelyHelper(handles[i]);
                 }
+
+                //then delete folder
+                if(folder_delete_result){
+                    monitor.onSubTaskStart(subTaskId);
+                    //borrow the variable "folder_delete_result" for temporary usage
+                    folder_delete_result=handle.delete();
+                    if(folder_delete_result){
+                        monitor.onSubTaskStop(subTaskId,ProgressMonitor.PROGRESS_STATUS.FAILED);
+                    }
+                }
+                else{
+                    monitor.onSubTaskStop(subTaskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
+                }
+                monitor.onSubTaskFinish(subTaskId);
+                subTaskId++;
+
+                //redundant set operation but useful
                 delete_result = delete_result && folder_delete_result;
                 return folder_delete_result;
             }
-            else{
+            else if(!hasSetStopBit){
                 monitor.onStop(ProgressMonitor.PROGRESS_STATUS.ABORTED);
-                interrupt_deletion=true;
                 return false;
             }
+            return false;
+        }
+
+        private void waitUntilFalse(){
+            while(monitor.interruptSignal()){
+                monitor.onStop(ProgressMonitor.PROGRESS_STATUS.PAUSED);
+            }
+            monitor.onStop(ProgressMonitor.PROGRESS_STATUS.GOING);
         }
     }
 

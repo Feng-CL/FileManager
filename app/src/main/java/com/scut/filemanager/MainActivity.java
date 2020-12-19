@@ -2,7 +2,7 @@ package com.scut.filemanager;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
+
 
 import android.Manifest;
 import android.content.Context;
@@ -78,8 +78,11 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+
+    //一个临时的onKeyDownListener MainActivity
     @Override
     public boolean onKeyDown(int keycode,KeyEvent k_ev){
+
         if(keycode==KeyEvent.KEYCODE_BACK){
             try {
                 return controller.handleKeyDownEvent_callback();
@@ -89,6 +92,7 @@ public class MainActivity extends AppCompatActivity
             }
         }
         else{
+            super.onKeyDown(keycode,k_ev);
             return true; //按键事件在该层被消费
         }
     }

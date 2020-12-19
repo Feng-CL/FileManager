@@ -26,6 +26,7 @@ public class OperationBarController {
         linearLayout=(LinearLayout)stub.inflate();
         stub.setVisibility(View.VISIBLE);
         loadOperationWidget();
+
     }
 
     private void loadOperationWidget(){

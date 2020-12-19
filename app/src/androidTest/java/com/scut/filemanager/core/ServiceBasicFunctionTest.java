@@ -12,13 +12,19 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import org.junit.runner.RunWith;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.concurrent.Future;
+
 @RunWith(AndroidJUnit4.class)
-public class ServiceCopyTest implements ProgressMonitor<String,Long>{
+public class ServiceBasicFunctionTest implements ProgressMonitor<String,Long>{
 
     String src_path="/storage/emulated/0/Download";
     String dst_path="/storage/emulated/0/Movies";
     String src_dst_path=dst_path+"/Download";
     Service service;
+    boolean working_signal=true;
+
     @Before
     public void setUp() throws Exception {
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -35,11 +41,23 @@ public class ServiceCopyTest implements ProgressMonitor<String,Long>{
         FileHandle src=new FileHandle(src_path);
         assertTrue("service starts normally ",service.getStatus()== Service.SERVICE_STATUS.OK);
         long startTime=System.currentTimeMillis();
-        Thread copyThread=service.copy(src,dst_path, this,Service.Service_CopyOption.RECURSIVE_COPY);
-        copyThread.join();
+        dst_path=service.getPathUnderSdCard("Movies");
+        service.copy(src,dst_path, this,Service.Service_CopyOption.RECURSIVE_COPY);
+
+        //wait until copyTask is done
+        while(working_signal){
+
+        }
+
         long costTime=System.currentTimeMillis()-startTime;
         System.out.println("cost time : "+costTime+"ms");
         assertTrue(service.ExistsAtPath(src_dst_path));
+    }
+
+    @Test
+    public void moveFunc()  {
+
+
     }
 
     @Override
@@ -50,11 +68,18 @@ public class ServiceCopyTest implements ProgressMonitor<String,Long>{
     @Override
     public void onFinished() {
         System.out.println("all task finish");
+        working_signal=false;
     }
 
     @Override
     public void onStart() {
         System.out.println("task start");
+        working_signal=true;
+    }
+
+    @Override
+    public void onStart(Future<?> future) {
+
     }
 
     @Override
@@ -90,6 +115,11 @@ public class ServiceCopyTest implements ProgressMonitor<String,Long>{
     @Override
     public void receiveMessage(int code, String msg) {
         System.out.println("msg code: "+code+" msg: "+msg);
+    }
+
+    @Override
+    public void describeTask(int taskId, String title) {
+
     }
 
     @Override
