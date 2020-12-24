@@ -1,7 +1,11 @@
 package com.scut.filemanager.ui;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
@@ -22,7 +26,7 @@ import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.util.protocols.DisplayFolderChangeResponder;
 
 
-public class LocationBarController implements View.OnClickListener, DisplayFolderChangeResponder {
+public class LocationBarController extends BaseController implements View.OnClickListener, DisplayFolderChangeResponder {
     private String[] canonical_path_tokens;
     private FileHandle folder;
     private HorizontalScrollView scrollView;
@@ -32,7 +36,7 @@ public class LocationBarController implements View.OnClickListener, DisplayFolde
     Button rootBtn;
     TextView separatorTextView;
 
-    @RequiresApi(api = Build.VERSION_CODES.R)
+
     public LocationBarController(FileHandle folder, ViewStub stub,TabViewController parentController){
         //inflate the layout
         stub.setLayoutResource(R.layout.location_bar);
@@ -42,12 +46,30 @@ public class LocationBarController implements View.OnClickListener, DisplayFolde
 
         rootBtn=layout_container.findViewById(R.id.btn_displayFolderName_borderless);
         separatorTextView=layout_container.findViewById(R.id.textview_separator_basic);
+        setUpHandler();
         setFolderAndUpdateView(folder);
         parent_controller=parentController;
+
+    }
+
+    public void setUpHandler(){
+        this.mHandler=new Handler(Looper.getMainLooper()){
+            @Override
+            public void handleMessage(@NonNull Message msg) {
+                switch(msg.what){
+                    case MessageCode.SCROLL_TO_END:
+                        //scroll this location bar to the end, when view is not ready this method will fail
+                        //scrollView.scrollTo(layout_container.getWidth()+300,scrollView.getScrollY());
+                        scrollView.smoothScrollTo(layout_container.getWidth()+300,scrollView.getScrollY());
+                        break;
+                    default:
+                        super.handleMessage(msg);
+                }
+            }
+        };
     }
 
 
-    @RequiresApi(api = Build.VERSION_CODES.R)
     public void setFolderAndUpdateView(FileHandle folder){
         this.folder=folder;
         if(this.folder!=null){
@@ -84,16 +106,10 @@ public class LocationBarController implements View.OnClickListener, DisplayFolde
                     btn.setTextColor(layout_container.getResources().getColor(R.color.pureBlack));
                 }
 
-
+                mHandler.sendEmptyMessage(MessageCode.SCROLL_TO_END);
 
 
             }
-
-            //scroll this location bar to the end, when view is not ready this method will fail
-            scrollView.scrollTo(layout_container.getWidth()+300,scrollView.getScrollY());
-            scrollView.smoothScrollTo(layout_container.getWidth()+300,scrollView.getScrollY());
-
-
 
         }
 
@@ -143,5 +159,19 @@ public class LocationBarController implements View.OnClickListener, DisplayFolde
     @Override
     public void respondTo(FileHandle folder) {
         setFolderAndUpdateView(folder);
+    }
+
+    @Override
+    public Context getContext() {
+        return null;
+    }
+
+    @Override
+    public Handler getHandler() {
+        return this.mHandler;
+    }
+
+    static public class MessageCode{
+        static public final int SCROLL_TO_END=0;
     }
 }

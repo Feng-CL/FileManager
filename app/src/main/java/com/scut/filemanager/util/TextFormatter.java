@@ -59,4 +59,21 @@ public class TextFormatter {
 
     }
 
+    public static String getSuitableFileSizeString(long size){
+        String unit;
+        if(size<1024){
+            unit="B";
+        }
+        else if(size>=1024&&size<1024*1024){
+            unit="KB";
+        }
+        else if(size>=1024*1024&&size<1024*1024*1024){
+            unit="MB";
+        }
+        else{
+            unit="GB";
+        }
+        String sizeStr=byteCountDescriptionConvert_longToString(unit,size,1);
+        return sizeStr+unit;
+    }
 }

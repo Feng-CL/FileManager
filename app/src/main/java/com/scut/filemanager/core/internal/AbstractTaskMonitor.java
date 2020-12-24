@@ -13,6 +13,7 @@ import java.util.concurrent.Future;
 abstract public class AbstractTaskMonitor<K,V> implements ProgressMonitor<K,V>{
     protected ProgressMonitor.PROGRESS_STATUS progress_status;
     protected boolean cancelSignal;
+    protected boolean[] abortSignalSlot;
     protected boolean interruptSignal;
     protected Stack<Map.Entry<Integer,String>> MessagesStack;
 
@@ -23,6 +24,7 @@ abstract public class AbstractTaskMonitor<K,V> implements ProgressMonitor<K,V>{
 
     public abstract void sendCancelSignal(int slot);
     protected abstract void pushMessage(int code, String msg);
+
 
     @Override
     public void onProgress(K key, V value) {
@@ -56,7 +58,6 @@ abstract public class AbstractTaskMonitor<K,V> implements ProgressMonitor<K,V>{
 
     @Override
     public void onSubTaskStart(int taskId) {
-
     }
 
     @Override
@@ -95,7 +96,9 @@ abstract public class AbstractTaskMonitor<K,V> implements ProgressMonitor<K,V>{
     }
 
     @Override
-    public boolean abortSignal(int slot) {
-        return false;
+    public void setUpAbortSignalSlot(boolean[] slot) {
+
     }
+
+
 }

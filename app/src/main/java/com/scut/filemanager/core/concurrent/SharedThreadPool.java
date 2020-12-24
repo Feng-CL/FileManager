@@ -111,6 +111,12 @@ public class SharedThreadPool {
         }
     }
 
+    public void shutdownAll(){
+        shutdown(PRIORITY.HIGH);
+        shutdown(PRIORITY.LOW);
+        shutdown(PRIORITY.MEDIUM);
+    }
+
     /*
     @Description: 尝试停止所有主动执行的任务，停止等待任务的处理，并返回正在等待执行的任务列表。
      */

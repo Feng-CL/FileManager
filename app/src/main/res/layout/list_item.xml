@@ -7,9 +7,11 @@
 
     <ImageView
         android:id="@+id/imgview_item_icon"
-        android:layout_width="52dp"
+        android:layout_width="43dp"
         android:layout_height="50dp"
         android:layout_marginTop="5dp"
+        android:layout_marginBottom="5dp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintHorizontal_bias="0.11"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
@@ -24,11 +26,15 @@
 
     <!--设置textview 内容限制字数 -->
     <TextView
+
         android:layout_width="wrap_content" android:ellipsize="end"
+        android:singleLine="true"
+        android:maxWidth="240dp"
         android:layout_height="wrap_content" app:layout_constraintLeft_toRightOf="@id/barrier"
         app:layout_constraintRight_toRightOf="parent" app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintHorizontal_bias="0.1" android:layout_marginTop="8dp"
         android:id="@+id/textview_item_name"
+        android:layout_marginLeft="16dp"
         android:textSize="15dp" />
 
     <TextView

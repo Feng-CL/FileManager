@@ -17,10 +17,10 @@ import java.io.IOException;
 import java.util.concurrent.Future;
 
 @RunWith(AndroidJUnit4.class)
-public class ServiceBasicFunctionTest implements ProgressMonitor<String,Long>{
+public class ServiceBasicFunctionTest implements ProgressMonitor<String,Float>{
 
-    String src_path="/storage/emulated/0/Download";
-    String dst_path="/storage/emulated/0/Movies";
+    String src_path="/storage/emulated/0/Movies/Download";
+    String dst_path="/storage/emulated/0/Documents";
     String src_dst_path=dst_path+"/Download";
     Service service;
     boolean working_signal=true;
@@ -38,30 +38,36 @@ public class ServiceBasicFunctionTest implements ProgressMonitor<String,Long>{
 
     @Test
     public void copy() throws InterruptedException {
-        FileHandle src=new FileHandle(src_path);
-        assertTrue("service starts normally ",service.getStatus()== Service.SERVICE_STATUS.OK);
-        long startTime=System.currentTimeMillis();
-        dst_path=service.getPathUnderSdCard("Movies");
-        service.copy(src,dst_path, this,Service.Service_CopyOption.RECURSIVE_COPY);
-
-        //wait until copyTask is done
-        while(working_signal){
-
-        }
-
-        long costTime=System.currentTimeMillis()-startTime;
-        System.out.println("cost time : "+costTime+"ms");
-        assertTrue(service.ExistsAtPath(src_dst_path));
+//        FileHandle src=new FileHandle(src_path);
+//        assertTrue("service starts normally ",service.getStatus()== Service.SERVICE_STATUS.OK);
+//        long startTime=System.currentTimeMillis();
+//        dst_path=service.getPathUnderSdCard("Movies");
+//        service.copy(src,dst_path, this,false,Service.Service_CopyOption.RECURSIVE_COPY);
+//
+//        //wait until copyTask is done
+//        while(working_signal){
+//
+//        }
+//
+//        long costTime=System.currentTimeMillis()-startTime;
+//        System.out.println("cost time : "+costTime+"ms");
+//        assertTrue(service.ExistsAtPath(src_dst_path));
     }
 
     @Test
     public void moveFunc()  {
 
+        src_path=service.getPathUnderRootDir("Movies")+"/Download";
+        dst_path=service.getPathUnderSdCard("Movies");
+        FileHandle src=new FileHandle(src_path);
+        service.move(src,dst_path,Service.Service_CopyOption.REPLACE_EXISTING,this);
+        while(working_signal){
 
+        }
     }
 
     @Override
-    public void onProgress(String key, Long value) {
+    public void onProgress(String key, Float value) {
         System.out.println(key+":"+value);
     }
 
@@ -85,11 +91,12 @@ public class ServiceBasicFunctionTest implements ProgressMonitor<String,Long>{
     @Override
     public void onStop(PROGRESS_STATUS status) {
         System.out.println("task stop"+" , status "+status.name());
+        working_signal=false;
     }
 
     @Override
-    public void onSubProgress(int taskId, String key, Long value) {
-        System.out.println("taskid"+taskId+" "+key+":"+value);
+    public void onSubProgress(int taskId, String key, Float value) {
+
     }
 
     @Override
@@ -130,5 +137,10 @@ public class ServiceBasicFunctionTest implements ProgressMonitor<String,Long>{
     @Override
     public boolean abortSignal() {
         return false;
+    }
+
+    @Override
+    public void setUpAbortSignalSlot(boolean[] slot) {
+
     }
 }

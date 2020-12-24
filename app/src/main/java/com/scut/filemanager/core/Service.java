@@ -9,6 +9,8 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
+import com.scut.filemanager.core.internal.CopyTaskMonitor;
+import com.scut.filemanager.core.internal.MessageEntry;
 import com.scut.filemanager.util.SimpleArrayFilter;
 
 import java.io.File;
@@ -226,6 +228,7 @@ public class Service {
     /*
     @Description: 复制文件或文件夹到指定位置，需要提供目标路径和源文件，以及监视器和复制选项
     @Notices 请确保目标的有效性，dstPath必须是存在的路径，且是一个目录。
+    onFinished()在这里仅用于确认线程退出,
     @Parameters:
         src: 源文件句柄，可以是单个文件或者一个文件夹，当然传入的目标如果是不存在则该任务不会被执行。
         dstPath: 目标路径，如果目标路径同样需要经过检验，需要是可写且存在的路径
@@ -236,8 +239,10 @@ public class Service {
         任务开始后，先统计需要复制的文件的总大小totalSize，并以onProgress(K,V)函数，返回"totalSize":srcSize
         到进度监视器中。
         子任务开始时调用onSubTaskStart(), 并通过describeTask 设置子任务的title
-        在复制过程中，receiveMessage和onStop()都是可选路径，即不一定会被调用。
+        在复制过程中，receiveMessage和onSubTaskStop()都是可选路径，即不一定会被调用。
         如果目标文件夹所在分区容量不足，同样会调用receiveMessage和onStop()通报监视器
+        如果时复制过程中的产生的错误，onStop不会调用，而是调用onSubTaskStop()，因为这样，可以知道是哪个文件
+        的操作对应的任务产生了异常
         生命周期函数调用概要:
         onStart()->空间余量检测()
         [{
@@ -250,10 +255,11 @@ public class Service {
         onSubTaskFinish(taskid)->
         }*]
         ->[receiveMessage(MsgCode,message)->onStop(PROGRESS_STATUS.FAILED)->]
-        onFinish()
+        onFinished()
 
     abortSignal() 与abortSignal(int slot)
     默认丢弃使用abortSignal()检测，同时使用1号终止信号槽决定回滚是否应该终止
+    如果设置了回滚，最后会通过receiveMessage(code,msg),通告监视器回滚情况
 
     信息码描述：
         receiveMessage(int code,String msg):
@@ -266,7 +272,8 @@ public class Service {
         6=创建文件夹失败
         7=空间不足
         8=未知错误
-        9=InterruptedException
+        9=InterruptedException（这是java类的错误）
+        10=回滚情况
 
      */
     public void copy(FileHandle src, String dstPath, ProgressMonitor<String,Long> monitor, boolean allowRollBack,Service_CopyOption... options){
@@ -307,27 +314,28 @@ public class Service {
     @Description: 移动文件或文件夹到指定位置，需要提供目标路径和源文件，以及监视器
     @Notices: 需要注意的是，务必在进行此操作前检查目标对象的有效性
               如果设置了中断信号，需要先解除中断信号后再发送丢弃信号才可放弃该任务。
+              移动方法暂时不提供回滚操作
     @Params:
         src: 源文件句柄，可以是单个文件或者一个文件夹，当然传入的目标如果是不存在则该任务不会被执行。
         dstPath: 目标路径，如果目标路径同样需要经过检验，需要是可写且存在的路径
         monitor: 监视器对象，键值对类型为： <String,Long> 分别对应文件名和大小(字节)
+        option: 仅需按照需要设置为REPLACE_EXISTING 即可，应该由业务逻辑判断目标是否存在，因为
+        ProgressMonitor对交互式不太好
     @Protocol:
-        子任务开始时调用onSubTaskStart(), 并通过describeTask 设置子任务的title
-        在复制过程中，receiveMessage和onStop()都是可选路径，即不一定会被调用。
-        如果目标文件夹所在分区容量不足，同样会调用receiveMessage和onStop()通报监视器
-        生命周期函数调用概要:
-        onStart)->
-        [{
-        onSubTaskStart(taskid)->describeTask(taskid,title)->
-        [onSubProgress(FileAbsolutePathName,numberOfBytesCopied)*->]
-        [
-        receiveMessage(MsgCode,message)->
-        onSubTaskStop(PROGRESS_STATUS.FAILED)
-        ->]
-        onSubTaskFinish(taskid)->
-        }*]
-        ->[receiveMessage(MsgCode,message)->onStop(PROGRESS_STATUS.FAILED)->]
-        onFinish()
+        调用路径
+        任务启动时，会调用onStart()标记启动状态
+        任务开始前，如果移动操作为存储卷之间的移动，则会先进行空间余量检测，不通过则任务会自动终止
+        任务进行时，会调用onProgress(当前正在操作的文件绝对路径名，进度值）
+        进度值取值为：0.0~1.0
+        任务异常时，会通过监视器的receiveMessage(code,msg)陆续通告消息，并伴随onStop(PROGRESS_STATUS.FAILED)
+        的调用。
+        任务正常结束则调用onFinished(), 否则将以onStop(某状态)来结束
+
+        使用到的方法：
+        receiveMessage(code,msg)
+        onStart() [onStop()] [onFinished()]
+        onProgress()
+
 
 
     信息码描述：
@@ -336,6 +344,7 @@ public class Service {
         1=目标路径不可写
         2=目标路径不存在
         3=源文件不可读
+        10=目标已存在该文件，且未设置覆写状态
 
         //仅在不同挂载设备间复制时会出现
         4=流关闭错误
@@ -347,11 +356,26 @@ public class Service {
         8=未知错误
         9=InterruptedException
 
+
      */
 
-    public void move(FileHandle src, String dstPath,ProgressMonitor<String,Long> monitor){
+    public void move(FileHandle src, String dstPath,Service_CopyOption option,ProgressMonitor<String,Float> monitor){
         //two type of dstPath
+        FileHandle dstFolder=new FileHandle(dstPath);
 
+        if(!dstFolder.isDirectory()||!dstFolder.isExist()){
+            monitor.receiveMessage(1,"destination isn't a folder");
+            monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+            return;
+        }
+        else if(!src.isExist()){
+            monitor.receiveMessage(0,"source file cannot be found");
+            monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+            return;
+        }
+
+        MoveTask moveTask=new MoveTask(src,dstPath,option,monitor);
+        svc_executor.execute(moveTask);
     }
 
 
@@ -488,9 +512,11 @@ public class Service {
         protected boolean needToRollBack=false;
         protected boolean allowRollBackFlag=true;
         protected boolean hasNotAborted=true; //prevent inconsistent
-
+        private boolean copy_result=true;
+        private boolean peace_out=false;
         int pid;
 
+        //arg_dst 为目标目录
         public CopyTask(int initial_taskId,ProgressMonitor<String,Long> arg_monitor,FileHandle arg_src,FileHandle arg_dst,boolean allowRollBackFlag){
             pid=initial_taskId;
             task_monitor=arg_monitor;
@@ -509,7 +535,7 @@ public class Service {
             catch (IOException ioex){
                 task_monitor.receiveMessage(3,ioex.getMessage());
                 task_monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
-                task_monitor.onFinished();
+
                 return;
             }
             long free_space=0L;
@@ -537,7 +563,8 @@ public class Service {
             task_monitor.onProgress("totalSize",srcSize);
             copyByStreamRecursively(pid,src,dst,task_monitor);
 
-            if(needToRollBack && allowRollBackFlag && hasNotAborted){
+
+            if(needToRollBack && allowRollBackFlag ){
                 rollBack();
             }
 
@@ -555,7 +582,7 @@ public class Service {
         protected boolean copyByStream(FileHandle src_handle,FileHandle dst_handle,ProgressMonitor<String,Long> monitor,int taskId)  {
 
             //assume both handles are effect, and do the copy work
-            if(!monitor.abortSignal()&&hasNotAborted) {
+            if(hasNotAborted && !monitor.abortSignal()) {
 
                 long sizeInBytes = src_handle.Size();
                 long numberOfBytesCopied = 0;
@@ -595,6 +622,9 @@ public class Service {
                         while (numberOfBlocksCopied < numberOfBlocks - 1) {
 
                             waitUntilNotInterrupt();//here is a waiting point，abortSignal is invalid here
+                            if(!hasNotAborted){
+                                return false; //退出点，防止以下代码继续执行
+                            }
 
                             try {
                                 bufferInput.read(buffer);
@@ -611,6 +641,9 @@ public class Service {
                                         e.getMessage());
                                 monitor.receiveMessage(5, e.getMessage());
                                 monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
+
+                                bufferOutput.close();
+                                bufferInput.close();
                                 return false;
                             }
                         }
@@ -623,19 +656,25 @@ public class Service {
                                 bufferOutput.write(buffer, 0, tailLength);
 
                                 numberOfBlocksCopied++;
-                                numberOfBytesCopied += blockSize;
+                                numberOfBytesCopied += tailLength;
 
                                 monitor.onSubProgress(taskId, "numberOfBytesCopied", numberOfBytesCopied);
                             } catch (IOException e) {
                                 Log.e("core.Service", "copying file by stream has incurred an IOException" + " Exception message: " +
                                         e.getMessage());
+                                monitor.receiveMessage(5,e.getMessage());
                                 monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
+
+                                bufferInput.close();
+                                bufferOutput.close();
+
                                 return false;
                             }
                         }
 
-                        fileInput.close();
-                        fileOutput.close();
+
+                        bufferInput.close();
+                        bufferOutput.close();
                         monitor.onSubTaskFinish(taskId);
                         return true;
                     }
@@ -683,7 +722,7 @@ public class Service {
         private int copyByStreamRecursively(int taskId,FileHandle src_folder,FileHandle dst,ProgressMonitor<String,Long> monitor){
             //复制文件夹这里用宽度优先算法
             //assert src_folder and dst both are effective
-            if(!task_monitor.abortSignal()&&hasNotAborted) {
+            if(hasNotAborted && !task_monitor.abortSignal() ) {
 
                 FileHandle[] list = src_folder.listFiles();
 
@@ -742,7 +781,9 @@ public class Service {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     task_monitor.receiveMessage(9,e.getMessage());
+                    hasNotAborted=false;
                     task_monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                    task_monitor.onFinished();
                     return;
                 }
             }
@@ -750,21 +791,30 @@ public class Service {
 
         //当前撤销操作暂时不提供成功验证。
         private void rollBack() {
-
+            boolean[] slot={false};
+            task_monitor.setUpAbortSignalSlot(slot);
+            if(dst.isExist()){
+                boolean result=dst._deleteRecursively(slot);
+                task_monitor.receiveMessage(10,String.valueOf(result));
+            }
         }
     }
 
     private class MoveTask implements Runnable {
-        private ProgressMonitor<String,Long> monitor;
+        private ProgressMonitor<String,Float> monitor;
         private FileHandle src;
         private String dstPath;
         private boolean allowRollBack=true;
         private boolean needToRollBack=false;
+        private boolean replace_existing_flag=false;
 
-        public MoveTask(FileHandle arg_src,String dstPath,ProgressMonitor<String,Long> monitor){
+        public MoveTask(FileHandle arg_src,String dstPath,Service_CopyOption option, ProgressMonitor<String,Float> monitor){
             this.src=arg_src;
             this.dstPath=dstPath;
             this.monitor=monitor;
+            if(option==Service_CopyOption.REPLACE_EXISTING){
+                replace_existing_flag=true;
+            }
         }
 
 
@@ -773,30 +823,122 @@ public class Service {
             if(isInSameVolume(src,dstPath)){
                 //rewrite absolute path directly
                 if(!monitor.abortSignal()){
-                    src.file.renameTo(new File(dstPath));
-                    monitor.onFinished();
+                    dstPath=dstPath+"/"+src.getName();
+
+                    //check existing
+                    FileHandle dstFileHandle= new FileHandle(dstPath);
+                    if(dstFileHandle.isExist()&&replace_existing_flag) {
+                        boolean delete_result=dstFileHandle._deleteRecursively(null);
+                        if(!delete_result) {
+                            monitor.receiveMessage(8,"destination exists files and cannot be overwritten");
+                            monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                            return;
+                        }
+                    }
+                    else{
+                        monitor.receiveMessage(10,"replace_existing option has no been set");
+                        monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                        return;
+                    }
+
+                    boolean move_result=src.file.renameTo(dstFileHandle.getFile());
+                    if(move_result) {
+                        monitor.onFinished();
+                    }
+                    else{
+                        monitor.receiveMessage(8,"directory is not empty");
+                        monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                    }
+                    return;
+                }
+                else{
+                    monitor.onStop(ProgressMonitor.PROGRESS_STATUS.ABORTED);
+                    return;
                 }
             }
             else{
                 //copy first then delete
 
-//                FileHandle dst=new FileHandle(dstPath);
-//                CopyTask cpTask=new CopyTask(0,internal_copy_monitor,src,dst,true);
-//                cpTask.run();
-//
-//
-//                //check internal_copy_monitor's status to ensure result
-//                if(internal_copy_monitor.getProgressStatus()!= ProgressMonitor.PROGRESS_STATUS.COMPLETED){
-//                    //something wrong happens, report to upper
-//
-//                }
-//
+                FileHandle dst=new FileHandle(dstPath);
+
+                class InternalCopyMonitor extends CopyTaskMonitor{
+
+                    private MessageEntry currentTask=new MessageEntry(0,"");
+
+                    @Override
+                    public void onSubTaskStop(int taskId, PROGRESS_STATUS status) {
+                        this.progress_status=status;
+                    }
+
+                    @Override
+                    public void onProgress(String key, Long value) {
+                        if(key.contentEquals("totalSize")){
+                            numberOfBytesNeedToCopy=value;
+                        }
+                    }
+
+                    @Override
+                    public void onSubProgress(int taskId, String key, Long value) {
+                        this.getTracker().put(taskId,value);
+                        monitor.onProgress(currentTask.getValue(),computeProgress());
+                    }
+
+                    @Override
+                    public void describeTask(int taskId, String title) {
+                        currentTask.setValue(title);
+                        currentTask.setKey(taskId);
+                    }
+
+                    @Override
+                    public void onFinished() {
+                        if(progress_status==null){
+                            progress_status=PROGRESS_STATUS.COMPLETED;
+                        }
+                    }
+
+                    @Override
+                    public boolean interruptSignal() {
+                        return monitor.interruptSignal();
+                    }
+
+                    @Override
+                    public boolean abortSignal() {
+                        return monitor.abortSignal();
+                    }
+
+                    private float computeProgress(){
+                        return (float)reportValueByTracker()/(float)numberOfBytesNeedToCopy;
+                    }
+                }
+
+                InternalCopyMonitor internal_copy_monitor=new InternalCopyMonitor();
+
+                CopyTask cpTask=new CopyTask(0,internal_copy_monitor,src,dst,false);
+                cpTask.run();
+
+
+                //check internal_copy_monitor's status to ensure result
+                if(internal_copy_monitor.getProgressStatus()!= ProgressMonitor.PROGRESS_STATUS.COMPLETED){
+                    //something wrong happens, report to upper
+
+                    //消息传递
+                    while(internal_copy_monitor.hasMessage()){
+                        MessageEntry msgEntry=internal_copy_monitor.popMessageEntry();
+                        monitor.receiveMessage(msgEntry.getKey(),msgEntry.getValue());
+                    }
+
+                    monitor.onStop(internal_copy_monitor.getProgressStatus());
+                }
+
+                //delete original files
+                boolean delete_result=src._deleteRecursively(null);
+                if(!delete_result){
+                    //delete original file fail, report to monitor
+                    monitor.receiveMessage(8,"unknown error");
+                    monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                }
 
             }
-
-        }
-
-        private void rollBack(){
 
         }
 

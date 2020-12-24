@@ -39,7 +39,12 @@ public interface ProgressMonitor<K,V>{
     @Description: 所有任务均可通过设置 丢弃信号位 来判断任务是否应该停止并结束
      */
     public boolean abortSignal();
-    public boolean abortSignal(int slot);
+
+    /*
+    @Description: 通过设置共享变量的方式，设置额外用途的信号槽。
+    监控器在获取到slot数组后，即可通过对成员赋值。
+     */
+    public void setUpAbortSignalSlot(boolean[] slot);
 
 
     //suggestive method for this

@@ -2,20 +2,14 @@ package com.scut.filemanager.core;
 
 import android.util.Log;
 
-import androidx.annotation.NonNull;
-
 import com.scut.filemanager.core.concurrent.SharedThreadPool;
 
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 
 public class FileHandle {
@@ -383,7 +377,7 @@ public class FileHandle {
                     NANOSECONDS
                     时间单位代表千分之一千分之一
                     SECONDS
-                    时间单位代表一秒
+                时间单位代表一秒
             }
             如果在等待过程中，这个线程被中断，get方法会抛出InterruptException,使用时应注意
             此异常的合理处理
@@ -615,6 +609,31 @@ public class FileHandle {
         }
     }
 
+    /*
+    @Description:　阻塞方法的递归删除,null
+     */
+    synchronized public boolean _deleteRecursively(boolean[] stop){
+        boolean delete_result=true;
+        if(stop==null||stop[0]) {
+            if (this.isDirectory()) {
+                FileHandle[] list = this.listFiles();
+                for (int i = 0; i < list.length; i++) {
+                    delete_result = delete_result && list[i]._deleteRecursively(stop);
+                }
+
+                //delete file under folder first, then delete folder itself
+                if (delete_result) {
+                    delete_result = this.delete();
+                }
+
+            } else {
+                delete_result = this.delete();
+            }
+            return delete_result;
+        }
+        return false;
+    }
+
 
     /*
     @Description: 如果该文件句柄是目录，则返回一个FileHandle数组,
@@ -624,7 +643,7 @@ public class FileHandle {
         if(file.isDirectory()){
             File[] list=file.listFiles();
             if(list==null){
-                return null; //空目录
+                return new FileHandle[0];
             }
             else{
                 int item_number=list.length;

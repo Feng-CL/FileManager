@@ -16,8 +16,8 @@ import java.util.concurrent.Future;
  */
 public class CopyTaskMonitor extends AbstractTaskMonitor<String,Long> {
 
-    private boolean rollbackCancelSignal=false;
     HashMap<Integer,Long> tracker=new HashMap<>();
+    protected long numberOfBytesNeedToCopy=0L;
 
     public CopyTaskMonitor(){
         //initial status
@@ -47,10 +47,10 @@ public class CopyTaskMonitor extends AbstractTaskMonitor<String,Long> {
             case 0:
                 cancelSignal=true;
                 break;
-            case 1:
-                rollbackCancelSignal=true;
-                break;
             default:
+                if(abortSignalSlot!=null&&slot<=abortSignalSlot.length){
+                    abortSignalSlot[slot-1]=true;
+                }
                 break;
         }
     }
@@ -60,18 +60,6 @@ public class CopyTaskMonitor extends AbstractTaskMonitor<String,Long> {
         MessagesStack.push(new MessageEntry(code,msg));
     }
 
-    @Override
-    public boolean abortSignal(int slot){
-        if(slot==0){
-            return cancelSignal;
-        }
-        else if(slot==1){
-            return rollbackCancelSignal;
-        }
-        else{
-            return super.abortSignal(slot);
-        }
-    }
 
     @Override
     public void receiveMessage(int code,String msg){
@@ -95,8 +83,13 @@ public class CopyTaskMonitor extends AbstractTaskMonitor<String,Long> {
         return null;
     }
 
+    public boolean hasMessage(){
+        return !MessagesStack.isEmpty();
+    }
+
     public MessageEntry popMessageEntry(){
         return  (MessageEntry) MessagesStack.pop();
     }
+
 
 }

@@ -26,4 +26,8 @@ public class MessageEntry implements Map.Entry<Integer,String>{
     public String setValue(String s) {
         return msg=s;
     }
+
+    public void setKey(int key){
+        code=key;
+    }
 }

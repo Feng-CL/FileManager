@@ -22,12 +22,13 @@ import java.lang.reflect.Field;
 import java.util.List;
 
 import com.scut.filemanager.*;
+import com.scut.filemanager.core.concurrent.SharedThreadPool;
 
 public class MainActivity extends AppCompatActivity
 {
     MainController controller=null;
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 //        super.onCreate(savedInstanceState);
@@ -57,7 +58,13 @@ public class MainActivity extends AppCompatActivity
         return true;
     }
 
+    @Override
+    protected void onDestroy() {
 
+        //资源有序退出，或者保存一些数据
+        SharedThreadPool.getInstance().shutdownAll();
+        super.onDestroy();
+    }
 
     //permission
     private static String[] PERMISSION_STORAGE={
@@ -85,7 +92,12 @@ public class MainActivity extends AppCompatActivity
 
         if(keycode==KeyEvent.KEYCODE_BACK){
             try {
-                return controller.handleKeyDownEvent_callback();
+                boolean comsume_result= controller.handleKeyDownEvent_callback();
+                if(!comsume_result){
+                    this.finish();
+                }
+                return true;
+
             } catch (IOException e) {
                 e.printStackTrace();
                 return true;

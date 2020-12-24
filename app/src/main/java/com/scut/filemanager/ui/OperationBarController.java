@@ -1,5 +1,7 @@
 package com.scut.filemanager.ui;
 
+import android.content.Context;
+import android.os.Handler;
 import android.view.View;
 import android.view.ViewStub;
 import android.widget.ImageView;
@@ -12,7 +14,7 @@ import com.scut.filemanager.R;
 用于控制操作栏的一个类
 目前仅用于加载必要的操作栏
  */
-public class OperationBarController {
+public class OperationBarController extends BaseController{
 
     private LinearLayout linearLayout;
     private int layout_resource_id= R.layout.operation_bar;
@@ -32,7 +34,7 @@ public class OperationBarController {
     private void loadOperationWidget(){
         ImageView icon=linearLayout.findViewById(R.id.operation_icon);
         TextView  textView=linearLayout.findViewById(R.id.operation_name);
-        icon.setImageResource(R.drawable.icon_basic_function_copy);
+        icon.setImageResource(R.drawable.icon_function_copy);
         textView.setText("copy");
     }
 
@@ -40,4 +42,14 @@ public class OperationBarController {
     处理操作状态的回调
      */
     public void onOperationStatusChange(){}
+
+    @Override
+    public Context getContext() {
+        return null;
+    }
+
+    @Override
+    public Handler getHandler() {
+        return null;
+    }
 }

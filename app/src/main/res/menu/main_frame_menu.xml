@@ -9,8 +9,9 @@
         app:showAsAction="ifRoom"
         android:title="Search"
         app:actionViewClass="android.widget.SearchView" />
-
-    <item android:title="new" app:showAsAction="ifRoom" />
-    <item android:title="Make Directory" app:showAsAction="ifRoom"/>
-    <item android:title="Switch View" app:showAsAction="ifRoom"/>
+    <item android:title="new" app:showAsAction="never" />
+    <item android:title="Make Directory" app:showAsAction="never"/>
+    <item android:title="Select all" app:showAsAction="never"/>
+    <item android:title="send by lan" app:showAsAction="never"/>
+    <item android:title="Switch View" app:showAsAction="never"/>
 </menu>
