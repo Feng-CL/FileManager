@@ -35,7 +35,7 @@ public class Service {
         RECURSIVE_COPY //递归复制文件夹
     }
 
-    public Service(Context app_context){
+    private Service(Context app_context){
         //initialize member object
         if(app_context==null){
             Log.e("core.Service","can not initialize without context");

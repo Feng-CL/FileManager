@@ -24,7 +24,7 @@ import com.scut.filemanager.core.concurrent.SharedThreadPool;
 import com.scut.filemanager.ui.TabViewController;
 import com.scut.filemanager.util.SimpleArrayFilter;
 import com.scut.filemanager.util.Sorter;
-import com.scut.filemanager.util.TextFormatter;
+import com.scut.filemanager.util.FMFormatter;
 import com.scut.filemanager.util.protocols.DisplayFolderChangeResponder;
 
 import java.util.ArrayList;
@@ -477,8 +477,8 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
                 else{
                     itemData.resId=getIconResourceIdByFileName(handle.getName());
                 }
-                detailInfo.append("  size: "+TextFormatter.getSuitableFileSizeString(handle.Size()));
-                detailInfo.append(" "+TextFormatter.timeDescriptionConvert_simpleLongToString(handle.getLastModifiedTime()));
+                detailInfo.append("  size: "+ FMFormatter.getSuitableFileSizeString(handle.Size()));
+                detailInfo.append(" "+ FMFormatter.timeDescriptionConvert_simpleLongToString(handle.getLastModifiedTime()));
                 itemData.itemDetailInfo=detailInfo.toString();
 
                 synchronized (itemDataList) {

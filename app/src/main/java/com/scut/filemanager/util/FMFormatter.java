@@ -8,7 +8,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class TextFormatter {
+public class FMFormatter {
     //默认保留一位小数,用于转换单位
 
     /*
@@ -75,5 +75,12 @@ public class TextFormatter {
         }
         String sizeStr=byteCountDescriptionConvert_longToString(unit,size,1);
         return sizeStr+unit;
+    }
+
+    public static  String ip4Address_i2s(int IP4Address){
+            return (IP4Address & 0xFF ) + "." +
+                    ((IP4Address >> 8 ) & 0xFF) + "." +
+                    ((IP4Address >> 16 ) & 0xFF) + "." +
+                    ( IP4Address >> 24 & 0xFF) ;
     }
 }

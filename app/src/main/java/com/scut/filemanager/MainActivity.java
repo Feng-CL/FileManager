@@ -49,6 +49,8 @@ public class MainActivity extends AppCompatActivity
     protected void onStart() {
         super.onStart();
         //启动前准备,暂时先不对闲置对象进行管理
+        FMGlobal.Default_shortAnimTime=getResources().getInteger(android.R.integer.config_shortAnimTime);
+        FMGlobal.Default_longAnimTime=getResources().getInteger(android.R.integer.config_longAnimTime);
     }
 
     @Override

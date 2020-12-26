@@ -62,9 +62,7 @@ public class MainController {
         ViewStub viewStub= (ViewStub)main_activity.findViewById(R.id.viewStub_for_listView);
         viewStub.setLayoutResource(R.layout.list_view_basic_for_files);
         ListView listView=(ListView)viewStub.inflate(); viewStub.setVisibility(ViewStub.VISIBLE);
-        tabViewController =new TabViewController(service,(ViewGroup)main_activity.findViewById(R.id.layout_tabViewContainer),listView);
-        listView.setOnItemClickListener(tabViewController);
-        listView.setOnItemLongClickListener(tabViewController);
+        tabViewController =new TabViewController(service,null,main_activity.findViewById(R.id.layout_tabViewContainer),listView);
         setKeyDownEventListener(tabViewController);
 
         Log.d("MainController","init successfully");

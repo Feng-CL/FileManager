@@ -8,6 +8,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.CheckBox;
 import android.widget.ListView;
@@ -26,7 +27,7 @@ import java.io.IOException;
 
 
 public class TabViewController extends BaseController implements AdapterView.OnItemClickListener, KeyDownEventHandler
-    , AdapterView.OnItemLongClickListener
+    , AdapterView.OnItemLongClickListener, AbsListView.OnScrollListener
 {
 
     /*
@@ -40,24 +41,20 @@ public class TabViewController extends BaseController implements AdapterView.OnI
     private FileHandle parent=null; //当前视图引用文件夹的父文件夹
     private boolean isReachRoot;    //判断当前视图是否应该继续返回键的事件
     private Service service=null;
-    private View tabView=null;  //该控制器控制的视图
+    private ListView listViewInTab =null;  //该控制器控制的视图
+    private View tabView=null;
+
     private SimpleListViewItemAssembler adapter; //视图的数据来源
     private ProgressBar progressCircle;
-    private boolean[] loadingLock={true,true,true}; //用于同步一些行为
+    //private boolean[] loadingLock={true,true,true}; //用于同步一些行为
 
     static private FileHandle[] SuperFolder=new FileHandle[2]; //特殊的文件句柄，用于显示内外存储的文件夹
 
+
     protected OPERATION_STATE operation_state=OPERATION_STATE.STATIC; //标记当前状态
+    protected OPERATION_STATE scrolling_state=OPERATION_STATE.STATIC; //标记滚动状态
 
-    @Override
-    public Context getContext() {
-        return service.getContext();
-    }
 
-    @Override
-    public Handler getHandler() {
-        return mHandler;
-    }
 
     //定义当前视图下的操作状态
     enum OPERATION_STATE{
@@ -67,6 +64,7 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         COPY,
         CUT,
         OTHER //更多状态未定义
+        ;
     }
 
 //    Handler mHandler=new Handler(Looper.getMainLooper()){
@@ -77,26 +75,29 @@ public class TabViewController extends BaseController implements AdapterView.OnI
 //        }
 //    };
 
-
-    public TabViewController(Service svc, ViewGroup parentView, View viewManaged) throws Exception {
+    public TabViewController(Service svc, ViewGroup parentView, View viewManaged,ListView listView) throws Exception {
         service=svc;
         this.parentView=parentView;
         tabView=viewManaged;
-        locationBarController=new LocationBarController(null,(ViewStub)parentView.findViewById(R.id.viewStub_for_locationBar),this);
-        operationBarController=new OperationBarController((ViewStub)parentView.findViewById(R.id.rootview_for_operationBar));
-        progressCircle=parentView.findViewById(R.id.progressbar_loading);
+        listViewInTab=listView;
+        listViewInTab.setOnItemClickListener(this);
+        listViewInTab.setOnItemLongClickListener(this);
+        listViewInTab.setOnScrollListener(this);
+        //设置监听
+
+
+        locationBarController=new LocationBarController(null, (ViewStub) tabView.findViewById(R.id.viewStub_for_locationBar),this);
+        operationBarController=new OperationBarController((ViewStub)tabView.findViewById(R.id.rootview_for_operationBar));
+        progressCircle=tabView.findViewById(R.id.progressbar_loading);
         initStaticMember();
         LoadFirstTab();
     }
-
-
-
 
     public void LoadFirstTab() throws Exception {
         current=service.getStorageDirFileHandle();
         isReachRoot=false;
         adapter=new SimpleListViewItemAssembler(current,this);
-        ListView listView=(ListView)tabView;
+        ListView listView=(ListView) listViewInTab;
         listView.setAdapter(adapter);
         registerFolderChangedResponder(locationBarController);
 
@@ -153,6 +154,31 @@ public class TabViewController extends BaseController implements AdapterView.OnI
     }
 
 
+    @Override
+    public Context getContext() {
+        return service.getContext();
+    }
+
+    @Override
+    public Handler getHandler() {
+        return mHandler;
+    }
+
+    @Override   //Callback method to be invoked while the list view or grid view is being scrolled.
+    public void onScrollStateChanged(AbsListView absListView, int state) {
+        if(state== AbsListView.OnScrollListener.SCROLL_STATE_IDLE){
+            scrolling_state=OPERATION_STATE.STATIC;
+        }
+        else {
+            scrolling_state=OPERATION_STATE.SCROLLING;
+        }
+        operationBarController.onScrollStateChange(scrolling_state);
+    }
+
+    @Override   //Callback method to be invoked when the list or grid has been scrolled.
+    public void onScroll(AbsListView absListView, int i, int i1, int i2) {
+
+    }
 
     public boolean onReturnKeyDown(AdapterView<?> parentView) throws IOException {
        if(operation_state!=OPERATION_STATE.SELECTING) {
