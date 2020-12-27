@@ -1,16 +1,20 @@
 package com.scut.filemanager;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
@@ -19,12 +23,14 @@ import android.widget.*;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.net.SocketException;
 import java.util.List;
 
 import com.scut.filemanager.*;
 import com.scut.filemanager.core.concurrent.SharedThreadPool;
 
 public class MainActivity extends AppCompatActivity
+
 {
     MainController controller=null;
 
@@ -36,8 +42,16 @@ public class MainActivity extends AppCompatActivity
 //        TextView tv=(TextView)findViewById(R.id.textview3);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        setSupportActionBar((Toolbar)findViewById(R.id.my_toolbar));
+
         controller=new MainController();
         controller.startService(this);
+        try {
+            controller.startNetService();
+        } catch (SocketException e) {
+            e.printStackTrace();
+        }
+
         try {
             controller.init();
         } catch (Exception e) {
@@ -49,8 +63,12 @@ public class MainActivity extends AppCompatActivity
     protected void onStart() {
         super.onStart();
         //启动前准备,暂时先不对闲置对象进行管理
+        Log.d("deviceName:",android.os.Build.MODEL);
+
         FMGlobal.Default_shortAnimTime=getResources().getInteger(android.R.integer.config_shortAnimTime);
         FMGlobal.Default_longAnimTime=getResources().getInteger(android.R.integer.config_longAnimTime);
+
+
     }
 
     @Override
@@ -64,7 +82,7 @@ public class MainActivity extends AppCompatActivity
     protected void onDestroy() {
 
         //资源有序退出，或者保存一些数据
-        SharedThreadPool.getInstance().shutdownAll();
+        //SharedThreadPool.getInstance().shutdownAll();
         super.onDestroy();
     }
 
@@ -109,5 +127,26 @@ public class MainActivity extends AppCompatActivity
             super.onKeyDown(keycode,k_ev);
             return true; //按键事件在该层被消费
         }
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        boolean consume;
+        switch (item.getItemId()){
+            case R.id.main_menu_item_sendbylan:
+                invokeLanSenderActivity();
+                consume=false;
+                break;
+            default:
+                consume=super.onOptionsItemSelected(item);
+                break;
+        }
+        return consume;
+    }
+
+    private void invokeLanSenderActivity(){
+        Intent intent=new Intent(this,LanSenderActivity.class);
+        FMGlobal.netService=controller.netService;
+        this.startActivity(intent);
     }
 }

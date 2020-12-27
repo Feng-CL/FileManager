@@ -31,19 +31,23 @@ public class OnlineBoardCaster implements Runnable {
 
 
 
-    private OnlineBoardCaster(NetService netService){
+    private OnlineBoardCaster(NetService netService)  {
         String deviceName=this.getClass().getName();
         try {
             InetAddress boardcastAddr=InetAddress.getByName("255.255.255.255");
-            alivePacket = new DatagramPacket(deviceName.getBytes("utf-8"), deviceName.length(), boardcastAddr,33720 );
+            alivePacket = new DatagramPacket(sndBuf,0,boardcastAddr,33720 );
+            this.constructDefaultEmptyPacket();
             udpSocket=new DatagramSocket();
             udpSocket.setBroadcast(true);
             if(!udpSocket.getBroadcast()){
                 statusCode=OnlineBoardCaster.SO_MULTICAST_DISABLED;
             }
         }
-        catch (UnknownHostException | SocketException | UnsupportedEncodingException ex){
-
+        catch (UnknownHostException | SocketException ex){
+            statusCode=OnlineBoardCaster.STOP;
+        }
+        catch(IOException ioex){
+            statusCode=MEET_IO_EXCEPTION;
         }
     }
 
@@ -54,21 +58,41 @@ public class OnlineBoardCaster implements Runnable {
         return caster;
     }
 
+    public boolean checkStatus(int expect){
+        return expect==this.statusCode;
+    }
+
+    synchronized public DatagramPacket constructPacket(InquirePacket inquirePacket) throws IOException {
+        alivePacket.setData(inquirePacket.getBytes());
+        return alivePacket;
+    }
+
+    synchronized public DatagramPacket constructDefaultEmptyPacket() throws IOException {
+        InquirePacket inquirePacket=new InquirePacket(InquirePacket.MessageCode.IP_NULL);
+        inquirePacket.description=NetService.getDeviceModel();
+        alivePacket.setData(inquirePacket.getBytes());
+        return alivePacket;
+    }
 
     @Override
     public void run() {
         statusCode=OnlineBoardCaster.NORMAL;
         while(!stop){
             try {
-                udpSocket.send(alivePacket);
-                Thread.sleep(1000);
+                synchronized (alivePacket) {
+                    udpSocket.send(alivePacket);
+                }
+                Thread.sleep(2000);
             }
-            catch(IOException | InterruptedException ex){
-
+            catch(IOException ioex){
+                this.statusCode=OnlineBoardCaster.MEET_IO_EXCEPTION;
+            }
+            catch (InterruptedException ex){
+                this.statusCode=OnlineBoardCaster.INTERUPPT_WHEN_SLEEP;
             }
         }
         udpSocket.close();
-
+        statusCode=OnlineBoardCaster.STOP;
     }
 
     public void stop(){

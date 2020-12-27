@@ -3,16 +3,17 @@ package com.scut.filemanager.core.net;
 import android.content.Context;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
-import android.util.Log;
+import android.os.Message;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
+import com.scut.filemanager.LanSenderActivity;
 import com.scut.filemanager.core.Service;
-import com.scut.filemanager.core.internal.AbstractTaskMonitor;
-import com.scut.filemanager.core.internal.MessageEntry;
+import com.scut.filemanager.core.internal.BoardCastScanWatcher;
+import com.scut.filemanager.ui.adapter.DeviceListViewAdapter;
 import com.scut.filemanager.util.FMFormatter;
 
-import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -21,7 +22,7 @@ import java.net.UnknownHostException;
 import java.util.Enumeration;
 
 //该类是启动和控制服务的起点，
-public class NetService extends AbstractTaskMonitor<String,InetAddress> {
+public class NetService extends BoardCastScanWatcher {
 
     //网络适配器
     private WifiManager wifi;
@@ -32,15 +33,23 @@ public class NetService extends AbstractTaskMonitor<String,InetAddress> {
     private Service service;
 
     //save status
-    private NetStatus status=NetStatus.UNINITIALIZED;
+    private NetStatus wifi_status =NetStatus.UNINITIALIZED;
+    private boolean isScanning=false;
+
 
     //static members
     private static NetService netService=null;
     //
 
+    //UI Activity:
+    private LanSenderActivity lanSenderActivity=null;
+
     //function members
     private OnlineBoardCaster caster;
-    private BoardCastScanner scanner;
+    public BoardCastScanner scanner;
+
+
+
 
     //Threads
     Thread[] threads=new Thread[2];
@@ -60,7 +69,7 @@ public class NetService extends AbstractTaskMonitor<String,InetAddress> {
 
         //无法获取WiFi 服务,归咎于权限
         if(wifi==null){
-            status=NetStatus.WIFI_PERMISSION_DENY;
+            wifi_status =NetStatus.WIFI_PERMISSION_DENY;
         }
         else {
 
@@ -68,21 +77,21 @@ public class NetService extends AbstractTaskMonitor<String,InetAddress> {
             switch(wifiStatusi){
                 case WifiManager.WIFI_STATE_DISABLED:
                 case WifiManager.WIFI_STATE_DISABLING:
-                    status=NetStatus.WIFI_DISABLED;
+                    wifi_status =NetStatus.WIFI_DISABLED;
                     break;
                 case WifiManager.WIFI_STATE_ENABLING:
                 case WifiManager.WIFI_STATE_ENABLED:
-                    status=NetStatus.WIFI_ENABLED;
+                    wifi_status =NetStatus.WIFI_ENABLED;
                     break;
                 default:
-                    status=NetStatus.WIFI_STATUS_UNKNOWN;
+                    wifi_status =NetStatus.WIFI_STATUS_UNKNOWN;
             }
 
-            if(status==NetStatus.WIFI_ENABLED){
+            if(wifi_status ==NetStatus.WIFI_ENABLED){
                 wifiInfo=wifi.getConnectionInfo();
                 if(wifiInfo.getIpAddress()!=-1){
                     //wifi enabled but not connect or getIpAddress
-                    status=NetStatus.WIFI_CONNECTED;
+                    wifi_status =NetStatus.WIFI_CONNECTED;
                 }
                 //获取网卡信息
 //                try {
@@ -106,11 +115,23 @@ public class NetService extends AbstractTaskMonitor<String,InetAddress> {
 
     }
 
-    public void startScanner() throws SocketException {
-        DatagramSocket udpSocket=new DatagramSocket(33720); //33720 listen
-        this.scanner=new BoardCastScanner(udpSocket,this);
-        threads[0]=new Thread(this.scanner);
-        threads[0].start();
+    public void startScanner() {
+        if(!isScanning) {
+            try {
+                DatagramSocket udpSocket = new DatagramSocket(33720); //33720 listen
+                this.scanner = new BoardCastScanner(udpSocket, this);
+                threads[0] = new Thread(this.scanner);
+                threads[0].start();
+            } catch (SocketException socket_exception) {
+                if (this.lanSenderActivity != null) {
+                    Message errMsg = Message.obtain();
+                    errMsg.what = LanSenderActivity.UIMessageCode.UPDATE_ERR_MSG;
+                    errMsg.obj = socket_exception.getMessage();
+                    this.lanSenderActivity.mHandler.sendMessage(errMsg);
+                }
+            }
+            isScanning=true;
+        }
     }
 
     public void startBoardCaster() throws SocketException {
@@ -119,8 +140,8 @@ public class NetService extends AbstractTaskMonitor<String,InetAddress> {
         threads[1].start();
     }
 
-    public NetStatus getStatus(){
-        return status;
+    public NetStatus getWifi_status(){
+        return wifi_status;
     }
 
     public WifiInfo getWifiConnectionInfo(){
@@ -140,35 +161,37 @@ public class NetService extends AbstractTaskMonitor<String,InetAddress> {
     @Description: return null if netServiceStatus isn't WIFI_CONNECTED
      */
     public String getWifiIpAddressDesc(){
-        if(getStatus()==NetStatus.WIFI_CONNECTED){
+        if(getWifi_status()==NetStatus.WIFI_CONNECTED){
             return FMFormatter.ip4Address_i2s(wifiInfo.getIpAddress());
         }
         return null;
     }
 
-    @Override
-    public void sendCancelSignal(int slot) {
-        //empty
+
+    /*
+        @Description:获取手机型号
+        @Params:
+    */
+    public static String getDeviceModel(){
+        StringBuilder str_builder=new StringBuilder(android.os.Build.MODEL.intern());
+        return str_builder.toString();
     }
 
     @Override
-    protected void pushMessage(int code, String msg) {
-        this.MessagesStack.push(new MessageEntry(code,msg));
+    public void handleInquirePacket(InquirePacket packet) {
+
     }
 
     @Override
-    public void receiveMessage(int code, String msg) {
-        Log.d("code: "+code ,"msg: "+msg);
+    public void onProgress(InetAddress key, String value) {
+        DeviceListViewAdapter.ItemData itemData=new DeviceListViewAdapter.ItemData(key.hashCode());
+        itemData.DeviceIp=key.getHostName();
+        itemData.DeviceName=value;
+        Message message=Message.obtain();
+        message.what=LanSenderActivity.UIMessageCode.NOTIFY_DATASET_CHANGE;
+        message.obj=itemData;
+        this.lanSenderActivity.mHandler.sendMessage(message);
     }
-
-    @Override
-    public void onProgress(String key, InetAddress value) {
-        Log.i("receive: ", key+" from: "+value.getHostName());
-        //this.cancelSignal=true;
-        //this.caster.stop();
-    }
-
-
 
     enum NetStatus{
         WIFI_CONNECTED, //wifi 已连接并获得IP地址
@@ -180,6 +203,28 @@ public class NetService extends AbstractTaskMonitor<String,InetAddress> {
         UNINITIALIZED
     }
 
+    public void stopScanning(){
+        isScanning=false;
+        scanner.stop();
+    }
+
+    /*
+        @Description:由Net来完成双向绑定
+        @Params:
+    */
+
+    public void bindLanSenderActivity(@NonNull LanSenderActivity activity){
+        this.lanSenderActivity=activity;
+        this.lanSenderActivity.setNetServiceRef(this);
+    }
+
+    public void unBindLanSenderActivity(){
+        this.lanSenderActivity=null;
+    }
+
+    public boolean isScanning(){
+        return this.isScanning;
+    }
 
 
 }

@@ -6,5 +6,6 @@
     <color name="white">#FFFF</color>
     <color name="pureBlack">#000000</color>
     <color name="silverGrey">#66666699</color>
-    <color name="transparent">#000000FF</color>
+    <color name="ilovethiscolor">#049DF9</color>
+    <color name="transparent">#00000000</color>
 </resources>

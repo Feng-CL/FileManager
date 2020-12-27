@@ -10,10 +10,12 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.scut.filemanager.core.Service;
+import com.scut.filemanager.core.net.NetService;
 import com.scut.filemanager.ui.TabViewController;
 import com.scut.filemanager.util.protocols.KeyDownEventHandler;
 
 import java.io.IOException;
+import java.net.SocketException;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -21,6 +23,7 @@ public class MainController {
 
     //context members
     public Service service=null;
+    public NetService netService=null;
     private Context context=null;
     private AppCompatActivity main_activity=null;
     //--------------------------------------------
@@ -47,6 +50,7 @@ public class MainController {
         context = app_context;
         main_activity = (AppCompatActivity) context;
 
+
         //check Service status
         if (service.getStatus() == Service.SERVICE_STATUS.OK) {
             return true;
@@ -55,6 +59,13 @@ public class MainController {
         }
 
 
+    }
+
+    public void startNetService() throws SocketException {
+        if(service!=null){
+            netService=NetService.getInstance(service);
+        }
+        netService.startBoardCaster();
     }
 
 

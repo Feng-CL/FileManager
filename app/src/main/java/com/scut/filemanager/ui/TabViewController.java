@@ -37,9 +37,13 @@ public class TabViewController extends BaseController implements AdapterView.OnI
      */
     private OperationBarController operationBarController; //操作栏控制器
     private LocationBarController locationBarController; //地址栏控制器
+
     private FileHandle current=null; //当前视图引用的文件夹
     private FileHandle parent=null; //当前视图引用文件夹的父文件夹
+
     private boolean isReachRoot;    //判断当前视图是否应该继续返回键的事件
+    private int selectedCount=0; //一个额外但很有用的记数变量，记录选中文件的数量
+
     private Service service=null;
     private ListView listViewInTab =null;  //该控制器控制的视图
     private View tabView=null;
@@ -149,7 +153,14 @@ public class TabViewController extends BaseController implements AdapterView.OnI
             CheckBox checkBox=view.findViewById(R.id.item_checkbox);
             boolean checkState=checkBox.isChecked();
             checkBox.setChecked(!checkState);
-
+            if(checkState) { //当前已选中，此时按下按钮更新为不选中,计数-1
+                selectedCount--;
+            }
+            else{
+                selectedCount++;
+            }
+            SimpleListViewItemAssembler.ItemData item =(SimpleListViewItemAssembler.ItemData)adapter.getItem(position);
+            item.isChecked=!checkState; //同时更新数据集中的内容
         }
     }
 
@@ -166,12 +177,13 @@ public class TabViewController extends BaseController implements AdapterView.OnI
 
     @Override   //Callback method to be invoked while the list view or grid view is being scrolled.
     public void onScrollStateChanged(AbsListView absListView, int state) {
-        if(state== AbsListView.OnScrollListener.SCROLL_STATE_IDLE){
-            scrolling_state=OPERATION_STATE.STATIC;
-        }
-        else {
+        if(state== AbsListView.OnScrollListener.SCROLL_STATE_TOUCH_SCROLL||state==AbsListView.OnScrollListener.SCROLL_STATE_FLING){
             scrolling_state=OPERATION_STATE.SCROLLING;
         }
+        else {
+            scrolling_state=OPERATION_STATE.STATIC;
+        }
+        //Log.i("tabViewScroll","scrollState: "+state);
         operationBarController.onScrollStateChange(scrolling_state);
     }
 
@@ -204,6 +216,7 @@ public class TabViewController extends BaseController implements AdapterView.OnI
        }
        else {
             clearOperationState();
+            adapter.setCheckBoxVisibility(View.GONE);
             //adapter.updateCheckBoxDisplayState(View.INVISIBLE);
             return true;
        }
@@ -221,6 +234,7 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         }
         parent=folder.getParentFileHandle();
         adapter.setFolder(current);
+        selectedCount=0;
     }
 
     @Override
@@ -253,25 +267,31 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         if(operation_state==OPERATION_STATE.STATIC){
             //更新当前状态为SELECTING
             operation_state=OPERATION_STATE.SELECTING;
-            //显示所有checkbox
-            //adapter.updateCheckBoxDisplayState(View.VISIBLE);
+            //设置checkbox可见性
+            adapter.setCheckBoxVisibility(View.VISIBLE);
 
             //选中当前项的checkbox
             CheckBox checkBoxLongClicked=view.findViewById(R.id.item_checkbox);
+            checkBoxLongClicked.setVisibility(View.VISIBLE);
             checkBoxLongClicked.setChecked(true);
+
+            //同时更新数据集
+            SimpleListViewItemAssembler.ItemData item= (SimpleListViewItemAssembler.ItemData)adapter.getItem(i);
+            item.isChecked=true;
             //Log.d("tabViewController","focus Status: "+checkBoxLongClicked.isFocused());
+
+            //事件被消费，返回true
             return true;
         }
         return false;
     }
 
     /*
-    刷新选中表, 当进入新视图时,确保选中表足够大，并把默认状态置为unchecked
+    清空当前的操作状态。
      */
-
-
     private void clearOperationState(){
         operation_state=OPERATION_STATE.STATIC;
+        selectedCount=0;
     }
 
     private void initStaticMember(){

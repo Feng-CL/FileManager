@@ -4,6 +4,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
 import android.os.Handler;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewStub;
 import android.widget.ImageView;
@@ -51,9 +52,11 @@ public class OperationBarController extends BaseController{
         if(state== TabViewController.OPERATION_STATE.SCROLLING){
             //hide
             fadeOut();
+            //Log.i("OperationBar", "fade out");
         }
         else{
             fadeIn();
+            //Log.i("OperationBar","fade in");
         }
     }
 
@@ -87,4 +90,45 @@ public class OperationBarController extends BaseController{
     public Handler getHandler() {
         return null;
     }
+
+
+    //zc code
+    private void oneFileSelected(){
+        ImageView icon=linearLayout.findViewById(R.id.operation_icon);
+        TextView textView=linearLayout.findViewById(R.id.operation_name);
+       // icon.setImageResource(R.drawable.icon_basic_function_copy);
+        textView.setText("oneFile");
+    }
+
+    private void moreThanOneFileSelected(){
+        ImageView icon=linearLayout.findViewById(R.id.operation_icon);
+        TextView  textView=linearLayout.findViewById(R.id.operation_name);
+      //  icon.setImageResource(R.drawable.icon_basic_function_copy);
+        textView.setText("moreFile");
+    }
+
+    private void disableButton(){
+        ImageView icon=linearLayout.findViewById(R.id.operation_icon);
+        TextView  textView=linearLayout.findViewById(R.id.operation_name);
+     //   icon.setImageResource(R.drawable.icon_basic_function_copy);
+        textView.setText("disable");
+    }
+
+    public void updateOperationWidget(TabViewController.OPERATION_STATE operation_state,int countCheckBox){
+        switch (operation_state){
+            case SELECTING:
+                if(countCheckBox==1)
+                    oneFileSelected();
+                else if(countCheckBox>1)
+                    moreThanOneFileSelected();
+                else if(countCheckBox==0)
+                    disableButton();
+                break;
+            case STATIC:
+                loadOperationWidget();
+        }
+
+    }
+
+    //....................
 }

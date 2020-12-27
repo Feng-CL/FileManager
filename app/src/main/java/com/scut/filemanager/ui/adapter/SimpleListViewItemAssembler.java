@@ -41,18 +41,20 @@ import java.util.List;
  */
 public class SimpleListViewItemAssembler extends BaseAdapter {
 
+    //数据源
     private FileHandle folder=null;
+    //组织
     private ArrayList<FileHandle> list_of_files=new ArrayList<>();
+    private List<ItemData> itemDataList=new ArrayList<>();//UI更新时从这里取内容
+    //layout
     private int item_layout_id;
     private LayoutInflater inflater;
+    private int checkBoxVisibility=View.INVISIBLE;
+    //callbacks
     private List<DisplayFolderChangeResponder> responders=new ArrayList<>();
-    private List<ItemData> itemDataList=new ArrayList<>();//UI更新时从这里取内容
 
+    //sorter
     private Comparator<FileHandle> comparator=null;
-    private AssembleTask assembleTask;
-
-    private TabViewController parentTabViewController;
-
     private static Comparator<FileHandle> default_comparator=new Comparator<FileHandle>() {
         @Override
         public int compare(FileHandle f1, FileHandle f2) {
@@ -61,6 +63,19 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
         }
     };
 
+    //task
+    private AssembleTask assembleTask;
+
+    //relative controllers
+    private TabViewController parentTabViewController;
+
+    static private class MessageCode{
+        static private final int NOTIFY_DATASET_CHANGE=0;
+        static private final int NOTIFY_LOADING=1;
+        static private final int NOTIFY_LOADED=2;
+    }
+
+    //handler 处理ui更新
     private Handler mHandler=new Handler(Looper.getMainLooper()){
         @Override
         public void handleMessage(@NonNull Message msg) {
@@ -78,12 +93,6 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
         }
     };
 
-    static private class MessageCode{
-        static private final int NOTIFY_DATASET_CHANGE=0;
-        static private final int NOTIFY_LOADING=1;
-        static private final int NOTIFY_LOADED=2;
-    }
-
     public SimpleListViewItemAssembler(FileHandle Folder, TabViewController bindController) throws Exception {
         folder=Folder;
         item_layout_id=R.layout.list_item;
@@ -96,15 +105,41 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
         if(!folder.isDirectory()){
            throw new Exception("[ItemAssember:creator] argument isn't a folder");
         }
+        notifyDataSetChanged();
         assembleTask=new AssembleTask();
         setFolder(folder);
 
     }
 
+    /*
+    @Description：注册文件夹改变的回调类，不直接使用，通过父控制器使用，
+     */
     public void registerFolderChangedResponder(DisplayFolderChangeResponder responder){
         if(!responders.contains(responder)){
             responders.add(responder);
         }
+    }
+
+    public void setCheckBoxVisibility(int visibility){
+        checkBoxVisibility=visibility;
+        notifyDataSetChanged();
+    }
+
+    public void setAllItemDataCheckedState(boolean state){
+        for (ItemData item:itemDataList
+             ) {
+            item.isChecked=state;
+        }
+    }
+
+    public List<FileHandle> getSelectedFileHandles(){
+        ArrayList<FileHandle> selected_handles_list=new ArrayList<>(list_of_files.size());
+        for (int i = 0; i < itemDataList.size(); i++) {
+            if(itemDataList.get(i).isChecked){
+                selected_handles_list.add(list_of_files.get(i));
+            }
+        }
+        return selected_handles_list;
     }
 
     /*
@@ -135,7 +170,7 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
                     }
                 }
         );
-        notifyDataSetChanged();
+        //notifyDataSetChanged();
     }
 
     @Override
@@ -187,23 +222,21 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
         else{
             //FileHandle item=(FileHandle)getItem(i);
             ItemData itemData=(ItemData)getItem(i);
-            if(convertView==null) { //reuse view
-                convertView = inflater.inflate(item_layout_id, parent, false);
-            }
+            synchronized (itemData) {
+                if (convertView == null) { //reuse view
+                    convertView = inflater.inflate(item_layout_id, parent, false);
+                }
 
-            ImageView imgView=convertView.findViewById(R.id.imgview_item_icon);
-            TextView textView=convertView.findViewById(R.id.textview_item_name);
-            TextView textView_detail=convertView.findViewById(R.id.textview_item_detail);
+                ImageView imgView = convertView.findViewById(R.id.imgview_item_icon);
+                TextView textView = convertView.findViewById(R.id.textview_item_name);
+                TextView textView_detail = convertView.findViewById(R.id.textview_item_detail);
 
-            imgView.setImageResource(itemData.resId);//strange
-            textView.setText(itemData.itemName);
-            textView_detail.setText(itemData.itemDetailInfo);
-
-
-
+                imgView.setImageResource(itemData.resId);//strange
+                textView.setText(itemData.itemName);
+                textView_detail.setText(itemData.itemDetailInfo);
 
 
-            //装载图标
+                //装载图标
 //            ImageView imgView=convertView.findViewById(R.id.imgview_item_icon);
 //            int  itemCount_underfolder=0; StringBuilder detailString=new StringBuilder();
 //            if(item.isDirectory()){
@@ -232,15 +265,20 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
 //            item_textView.setText(item.getName());  item_detail_textView.setText(detailString.toString());
 //
 //            //调整checkBox 状态
-            CheckBox checkBox=convertView.findViewById(R.id.item_checkbox);
-            checkBox.setVisibility(View.INVISIBLE);
-            checkBox.setClickable(false);
+                CheckBox checkBox = convertView.findViewById(R.id.item_checkbox);
+                //根据保存的状态调整checkbox可见性
+                checkBox.setVisibility(checkBoxVisibility);
+                //根据数据集调整checkbox的选中状态
+                checkBox.setChecked(itemData.isChecked);
+                checkBox.setClickable(false);
+            }
             //checkBox.setChecked(selectedTable.get(i));
         }
         return convertView;
     }
 
-    public int getResourceId(String name)
+    @Deprecated
+    private int getResourceId(String name)
     {
         try
         {
@@ -282,8 +320,6 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
         comparator=cmptor;
     }
 
-
-
     //重置数据集
     public void setListAssembled(FileHandle[] listToAssemble){
         mHandler.sendEmptyMessage(MessageCode.NOTIFY_LOADING);
@@ -311,6 +347,10 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
         dispatchFolderChangedEventToResponders();
 
     }
+
+    /*
+    @Description: 清空设置adapter 内所有item 的ischecked
+     */
 
     private void updateItemSet() {
         int item_count=folder.getFileCount();
@@ -447,6 +487,7 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
 
     //异步线程处理好应该加载的数据，并通过Message提交到主线程中,可复用的实例
  
+    private List<ItemData> tempItemList=new ArrayList<>(30);
 
     class AssembleTask implements Runnable{
 
@@ -457,43 +498,46 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
         @Override
         public void run() {
             SimpleListViewItemAssembler.this.mHandler.sendEmptyMessage(MessageCode.NOTIFY_LOADING);
-            itemDataList.clear();
-            updateItemSet();
+                updateItemSet();
 
-
+            tempItemList.clear();
 
             for (int i = 0; i < list_of_files.size(); i++) {
 
-                FileHandle handle=list_of_files.get(i);
-                ItemData itemData=new ItemData();
-                itemData.itemName=handle.getName();
+                FileHandle handle = list_of_files.get(i);
+                ItemData itemData = new ItemData();
+                itemData.itemName = handle.getName();
 
-                StringBuilder detailInfo=new StringBuilder();
+                StringBuilder detailInfo = new StringBuilder();
 
-                if(handle.isDirectory()){
-                    itemData.resId=R.drawable.icon_default_dir;
-                    detailInfo.append("Total: "+handle.getFileCount());
+                if (handle.isDirectory()) {
+                    itemData.resId = R.drawable.icon_default_dir;
+                    detailInfo.append("Total: " + handle.getFileCount());
+                } else {
+                    itemData.resId = getIconResourceIdByFileName(handle.getName());
                 }
-                else{
-                    itemData.resId=getIconResourceIdByFileName(handle.getName());
-                }
-                detailInfo.append("  size: "+ FMFormatter.getSuitableFileSizeString(handle.Size()));
-                detailInfo.append(" "+ FMFormatter.timeDescriptionConvert_simpleLongToString(handle.getLastModifiedTime()));
-                itemData.itemDetailInfo=detailInfo.toString();
+                detailInfo.append("  size: " + FMFormatter.getSuitableFileSizeString(handle.Size()));
+                detailInfo.append(" " + FMFormatter.timeDescriptionConvert_simpleLongToString(handle.getLastModifiedTime()));
+                itemData.itemDetailInfo = detailInfo.toString();
 
-                synchronized (itemDataList) {
-                    itemDataList.add(itemData);
-                }
+
+                tempItemList.add(itemData);
+
             }
-
-
+            synchronized (itemDataList) {
+                itemDataList.clear();
+                itemDataList.addAll(tempItemList);
+            }
             SimpleListViewItemAssembler.this.mHandler.sendEmptyMessage(MessageCode.NOTIFY_LOADED);
         }
     }
 
-    class ItemData{
+
+
+    public class ItemData{
         String itemName="";
         String itemDetailInfo="  ";
+        public boolean isChecked=false;
         int resId=R.drawable.icon_raw_file;
     }
 

@@ -1,5 +1,7 @@
 package com.scut.filemanager.core.net;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 
 import com.scut.filemanager.core.ProgressMonitor;
@@ -19,11 +21,11 @@ public class BoardCastScanner implements Runnable {
     static InetSocketAddress MultiCastAddress = new InetSocketAddress(33720);
     private DatagramSocket udpSocket;
     private boolean stopScanning = false;
-    private ProgressMonitor<String, InetAddress> watcher;
+    private ProgressMonitor<InetAddress,String> watcher;
     private byte[] buf = new byte[8 * 1024];
     private DatagramPacket rcvPacket = null;
 
-    public BoardCastScanner(@NonNull DatagramSocket bindUdpSocket,@NonNull ProgressMonitor<String, InetAddress> watcher) {
+    public BoardCastScanner(@NonNull DatagramSocket bindUdpSocket,@NonNull ProgressMonitor<InetAddress,String> watcher) {
         this.udpSocket = bindUdpSocket;
         try {
             this.udpSocket.setSoTimeout(15 * 1000);
@@ -47,6 +49,7 @@ public class BoardCastScanner implements Runnable {
         static final int PERIOD_TIMEOUT=0;
         static final int SOCKET_EXCEPTION_HAPPENS=1;
         static final int RESET_TIMEOUT_FAILED=2;
+        static final int INTERRUPT_EXCEPTION=3;
     }
 
     @Override
@@ -59,30 +62,44 @@ public class BoardCastScanner implements Runnable {
         while (!stopScanning) {
             try {
                 udpSocket.receive(rcvPacket);
-                String deviceName;
                 byte[] subBytes=Arrays.copyOf(rcvPacket.getData(),rcvPacket.getLength());
-                deviceName=new String(subBytes,"utf-8");
-                watcher.onProgress(deviceName,rcvPacket.getAddress());
+                InquirePacket inquirePacketReceived=InquirePacket.decodeToThis(subBytes);
+                inquirePacketReceived.ip=rcvPacket.getAddress();
+                watcher.onProgress(inquirePacketReceived.ip,inquirePacketReceived.description); //暂时先这样处理
+                //watcher.onProgress(deviceName,rcvPacket.getAddress());
                 if(watcher.abortSignal()){
                     stopScanning=true;
                 }
             }
             catch(SocketTimeoutException timeoutException){
                 watcher.receiveMessage(WatcherMsgCode.PERIOD_TIMEOUT,timeoutException.getMessage());
-                //watcher.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
-
+                watcher.onStop(ProgressMonitor.PROGRESS_STATUS.PAUSED); //扫描器暂时超时
+                while(watcher.interruptSignal()){
+                    try {
+                        this.wait(1000);
+                    } catch (InterruptedException e) {
+                        watcher.receiveMessage(WatcherMsgCode.INTERRUPT_EXCEPTION,e.getMessage());
+                        watcher.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED); //此时应该停止扫描
+                        stop();
+                    }
+                }
             }
             catch (IOException ioex){
                 watcher.receiveMessage(WatcherMsgCode.SOCKET_EXCEPTION_HAPPENS,ioex.getMessage());
-               // watcher.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                watcher.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                stop();
                 //return;
             }
         }
+
+        Log.i("scanner: ","stop scanning");
         watcher.onFinished();
     }
 
 
-
+    public boolean isScanning(){
+        return !stopScanning;
+    }
     public void stop(){
         stopScanning=true;
     }
