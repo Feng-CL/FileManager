@@ -111,4 +111,8 @@ public class MainController {
         return mlistener_consume_result;
     }
 
+    public TabViewController getTabViewController(){
+        return tabViewController;
+    }
+
 }

@@ -137,6 +137,10 @@ public class MainActivity extends AppCompatActivity
                 invokeLanSenderActivity();
                 consume=false;
                 break;
+            case R.id.main_menu_item_select_all:
+                if(controller.getTabViewController()!=null){
+                    controller.getTabViewController().setSelectAll();
+                }
             default:
                 consume=super.onOptionsItemSelected(item);
                 break;

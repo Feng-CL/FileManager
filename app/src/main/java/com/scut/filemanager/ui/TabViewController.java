@@ -242,7 +242,9 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         return onReturnKeyDown(parentView);
     }
 
-
+    public void setSelectAll(){
+        adapter.setSelectAll();
+    }
 
 
     /*

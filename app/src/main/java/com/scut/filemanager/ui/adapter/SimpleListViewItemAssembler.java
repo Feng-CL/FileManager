@@ -277,6 +277,14 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
         return convertView;
     }
 
+    public void setSelectAll(){
+        for (ItemData item :
+                itemDataList) {
+            item.isChecked = true;
+        }
+        mHandler.sendEmptyMessage(MessageCode.NOTIFY_LOADED);
+    }
+
     @Deprecated
     private int getResourceId(String name)
     {
