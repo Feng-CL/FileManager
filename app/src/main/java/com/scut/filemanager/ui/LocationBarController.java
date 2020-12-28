@@ -23,6 +23,7 @@ import androidx.annotation.RequiresApi;
 
 import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
+import com.scut.filemanager.core.Service;
 import com.scut.filemanager.util.protocols.DisplayFolderChangeResponder;
 
 
@@ -39,6 +40,7 @@ public class LocationBarController extends BaseController implements View.OnClic
 
     public LocationBarController(FileHandle folder, ViewStub stub,TabViewController parentController){
         //inflate the layout
+        super();
         stub.setLayoutResource(R.layout.location_bar);
         scrollView=(HorizontalScrollView) stub.inflate();
         stub.setVisibility(View.VISIBLE);
@@ -46,13 +48,13 @@ public class LocationBarController extends BaseController implements View.OnClic
 
         rootBtn=layout_container.findViewById(R.id.btn_displayFolderName_borderless);
         separatorTextView=layout_container.findViewById(R.id.textview_separator_basic);
-        setUpHandler();
+
         setFolderAndUpdateView(folder);
         parent_controller=parentController;
 
     }
 
-    public void setUpHandler(){
+    protected void setUpHandler(){
         this.mHandler=new Handler(Looper.getMainLooper()){
             @Override
             public void handleMessage(@NonNull Message msg) {
@@ -169,6 +171,11 @@ public class LocationBarController extends BaseController implements View.OnClic
     @Override
     public Handler getHandler() {
         return this.mHandler;
+    }
+
+    @Override
+    public Service getFileManagerCoreService() {
+        return parent_controller.getFileManagerCoreService();
     }
 
     static public class MessageCode{

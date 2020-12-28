@@ -15,6 +15,7 @@ import android.widget.LinearLayout;
 import androidx.annotation.NonNull;
 
 import com.scut.filemanager.R;
+import com.scut.filemanager.core.Service;
 
 /*
 用于控制操作栏的一个类
@@ -36,15 +37,15 @@ public class OperationBarController extends BaseController{
     private View btn_newFolder;
 
 
-    private int open_button_id = R.id.operation_button_open;
-    private int copy_button_id = R.id.operation_button_copy;
-    private int move_button_id = R.id.operation_button_move;
-    private int rename_button_id = R.id.operation_button_rename;
-    private int delete_button_id = R.id.operation_button_delete;
-    private int more_button_id = R.id.operation_button_more;
-    private int cancel_button_id = R.id.operation_button_cancel;
-    private int paste_button_id = R.id.operation_button_paste;
-    private int newFolder_button_id = R.id.operation_button_newFolder;
+    private final int open_button_id = R.id.operation_button_open;  //1
+    private final int copy_button_id = R.id.operation_button_copy;    //2
+    private final int move_button_id = R.id.operation_button_move;    //3
+    private final int rename_button_id = R.id.operation_button_rename; //4
+    private final int delete_button_id = R.id.operation_button_delete; //5
+    private final int more_button_id = R.id.operation_button_more; //6
+    private final int cancel_button_id = R.id.operation_button_cancel; //7
+    private final int paste_button_id = R.id.operation_button_paste; //8
+    private final int newFolder_button_id = R.id.operation_button_newFolder; //9
 
 
     private static int fadeInFadeOut_durationTime=100;
@@ -65,12 +66,12 @@ public class OperationBarController extends BaseController{
     同时，设置好状态刷新的回调函数。
      */
     public OperationBarController(ViewStub stub){
+        super();
         stub.setLayoutResource(layout_resource_id);
         linearLayout=(LinearLayout)stub.inflate();
         stub.setVisibility(View.VISIBLE);
 
         loadOperationWidget();
-        setButtonOnClick();
         //linearLayout.setVisibility(View.INVISIBLE);
         this.mHandler=new Handler(Looper.getMainLooper()){
             @Override
@@ -134,68 +135,32 @@ public class OperationBarController extends BaseController{
         btn_cancel = linearLayout.findViewById(cancel_button_id);
         btn_paste = linearLayout.findViewById(paste_button_id);
         btn_newFolder = linearLayout.findViewById(newFolder_button_id);
+
+        btn_open.setTag(1);
+        btn_copy.setTag(2);
+        btn_move.setTag(3);
+        btn_rename.setTag(4);
+        btn_delete.setTag(5);
+        btn_more.setTag(6);
+        btn_cancel.setTag(7);
+        btn_paste.setTag(8);
+        btn_newFolder.setTag(9);
         //初始全部设置为GONE
         setAllWidgetsGone();
     }
 
-    private void setButtonOnClick(){
-        btn_open.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //打开操作代码
 
-            }
-        });
-        btn_copy.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //copy
-            }
-        });
-        btn_move.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //move
-                mHandler.sendEmptyMessage(MessageCode.MULTI_SELECTED);
-            }
-        });
-        btn_rename.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //rename
-            }
-        });
-        btn_delete.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //delete
-            }
-        });
-        btn_more.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //more
-            }
-        });
-        btn_cancel.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //cancel
-            }
-        });
-        btn_paste.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //paste
-            }
-        });
-        btn_newFolder.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //new folder
-            }
-        });
 
+    public void setButtonOnClickListener(View.OnClickListener onClickListener){
+        btn_open.setOnClickListener(onClickListener);
+        btn_copy.setOnClickListener(onClickListener);
+        btn_move.setOnClickListener(onClickListener);
+        btn_rename.setOnClickListener(onClickListener);
+        btn_delete.setOnClickListener(onClickListener);
+        btn_more.setOnClickListener(onClickListener);
+        btn_cancel.setOnClickListener(onClickListener);
+        btn_paste.setOnClickListener(onClickListener);
+        btn_newFolder.setOnClickListener(onClickListener);
     }
 
 
@@ -272,5 +237,10 @@ public class OperationBarController extends BaseController{
     @Override
     public Handler getHandler() {
         return null;
+    }
+
+    @Override
+    public Service getFileManagerCoreService() {
+        return this.parentController.getFileManagerCoreService();
     }
 }

@@ -29,8 +29,6 @@ public class SimpleArrayFilter{
     }
 
 
-
-
     static public <E> boolean hasElementByLinearSearch(E[] elements,E arge){
         for (E e:
             elements) {

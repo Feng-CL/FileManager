@@ -285,6 +285,7 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
         mHandler.sendEmptyMessage(MessageCode.NOTIFY_LOADED);
     }
 
+
     @Deprecated
     private int getResourceId(String name)
     {
@@ -341,11 +342,13 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
 
         itemDataList.clear();
         for (int i = 0; i < listToAssemble.length; i++) {
-            ItemData itemData=new ItemData();
-            itemData.itemName=listToAssemble[i].getName();
-            itemData.resId=R.drawable.icon_default_dir;
-            itemData.itemDetailInfo="";
-            itemDataList.add(itemData);
+            if(listToAssemble[i]!=null) {
+                ItemData itemData = new ItemData();
+                itemData.itemName = listToAssemble[i].getName();
+                itemData.resId = R.drawable.icon_default_dir;
+                itemData.itemDetailInfo = "";
+                itemDataList.add(itemData);
+            }
         }
 
 
@@ -419,6 +422,12 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
         mapper.put("flac",FileType.AUDIO);
         mapper.put("ogg",FileType.AUDIO);
         mapper.put("wav",FileType.AUDIO);
+        mapper.put("m4a",FileType.AUDIO);
+
+        //image
+        mapper.put("png", FileType.PNG);
+        mapper.put("jpg",FileType.JPG);
+        mapper.put("jpeg",FileType.JPG);
 
         //video
         mapper.put("video",FileType.VIDEO);

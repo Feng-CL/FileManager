@@ -1,3 +1,18 @@
 <resources>
     <string name="app_name">FileManager</string>
+    <string name="dialog_locationPicker_title">Choose Location</string>
+    <string name="dialog_locationPicker_positiveBtnTitle">confirm</string>
+    <string name="dialog_locationPicker_negativeBtnTitle">cancel</string>
+    <string name="dialog_positive_button_text">OK</string>
+    <string name="dialog_negative_button_text">cancel</string>
+
+    <string name="superfolder_default_name">select a location</string>
+    <string name="emptyFolderHint">this is an empty folder</string>
+    <string name="dialogTitle_newFile">New File</string>
+    <string name="dialogTitle_newFolder">Make Directory</string>
+    <string name="editText_placeholder">Input text here...</string>
+    <string name="editText_illegal_input_hint">Cannot contain illegal character</string>
+
+    <string name="ToastHint_mkdir_true">Make Directory Successfully</string>
+    <string name="ToastHint_mkdir_false">Make Directory Fails</string>
 </resources>

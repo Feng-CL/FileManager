@@ -346,12 +346,12 @@ public class FileHandle {
     }
 
     /*
-    @Description: 统计文件夹包含项大小时，可能会阻塞主线程，因此这里将它线程化。
+    @Description: 统计文件夹包含项数量时，可能会阻塞主线程，因此这里将它线程化。
     @Return: Future<Integer> 通过Future<Integer> 可尝试取消任务并获取实时计算信息
     @Protocol:
         关于返回对象Future<Integer> 的接口描述：
         > boolean cancel(boolean mayInterruptIfRunning)
-            发出中断信号，并返回发出中断信号后，到函数结束时的取消结果，该方法未非阻塞方法，如果需要判断是否已经中断
+            发出中断信号，并返回发出中断信号后，到函数结束时的取消结果，该方法未非阻塞方法，如果需要确切判断是否已经中断
             需要通过isCancelled() 进行重复检测
             调用该方法后，isDone()将返回true
         > isCancelled()
@@ -686,8 +686,13 @@ public class FileHandle {
             return null;
         }
     }
-    //元数据metadata 的操作
 
+    public boolean isDenotedToSameFile(FileHandle fileHandle){
+        return this.getAbsolutePathName().contentEquals(fileHandle.getAbsolutePathName());
+    }
+
+
+    //元数据metadata 的操作
     /*
     可以使用textFormatter进行转换
      */
@@ -706,12 +711,17 @@ public class FileHandle {
         FileHandle CloneHandle=new FileHandle(this.file);
         return CloneHandle;
     }
+
+    @Override
+    public String toString(){
+       return getName();
+    }
     //Private methods
 
 
     //-----------------static methods---------------------------
 
-    public static FileHandle superHandle=new FileHandle("/storage/super"); //a special handle
+    public static FileHandle superHandle=new FileHandle("/storage/super"); //a special handl
     private static String storage0_prefix="/storage/emulated/0";
     private static String storage_prefix="/storage";
     private static String sdcard_prefix=null;
@@ -728,6 +738,11 @@ public class FileHandle {
 
     public static void _initPrefixName(Service svc){
         sdcard_prefix=svc.getSDCardRootDirectoryPathName();
+    }
+
+    static public boolean makeDirectory(FileHandle parent, String name){
+        FileHandle folderToBeCreated=new FileHandle(parent.getAbsolutePathName().concat("/").concat(name));
+        return folderToBeCreated.makeDirectory();
     }
     //---------------分割线--------------------------------
 

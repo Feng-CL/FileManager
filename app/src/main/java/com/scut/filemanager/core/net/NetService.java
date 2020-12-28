@@ -185,7 +185,7 @@ public class NetService extends BoardCastScanWatcher {
     @Override
     public void onProgress(InetAddress key, String value) {
         DeviceListViewAdapter.ItemData itemData=new DeviceListViewAdapter.ItemData(key.hashCode());
-        itemData.DeviceIp=key.getHostName();
+        itemData.DeviceIp=key.getHostAddress();
         itemData.DeviceName=value;
         Message message=Message.obtain();
         message.what=LanSenderActivity.UIMessageCode.NOTIFY_DATASET_CHANGE;

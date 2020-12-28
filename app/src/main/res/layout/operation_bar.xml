@@ -5,60 +5,295 @@
  则更多是一种preferenceHint
  -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="300dp"
+    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layout_gravity="center"
-    android:minWidth="300dp"
-    android:background="@color/white"
+    android:minWidth="100dp"
+    android:background="@drawable/round_rectangle_bg"
     android:gravity="center_horizontal"
     android:orientation="horizontal"
+    android:clickable="true"
+    android:paddingLeft="25dp"
+    android:paddingRight="25dp"
     android:elevation="2dp"
     >
 
     <RelativeLayout
+        android:id="@+id/operation_button_open"
         android:layout_width="50dp"
         android:layout_height="match_parent"
-        android:background="@color/white"
+        android:background="@drawable/play_button_clicked"
         android:gravity="center"
         android:paddingVertical="1dp"
+        android:tag="1"
         >
 
         <ImageView
-            android:id="@+id/operation_icon"
+            android:id="@+id/operation_icon_open"
             android:layout_width="25dp"
-            android:layout_height="25dp" />
+            android:layout_height="25dp"
+            android:layout_centerHorizontal="true"
+            android:src="@drawable/ic_blue_open"
+            />
 
         <TextView
-            android:id="@+id/operation_name"
+            android:id="@+id/operation_name_open"
             android:textAlignment="center"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_below="@id/operation_icon"
-            android:text=""
+            android:layout_below="@id/operation_icon_open"
+            android:layout_centerHorizontal="true"
+            android:text="open"
             android:textColor="@color/pureBlack"
-            android:textSize="15dp" />
+            android:textSize="14dp" />
     </RelativeLayout>
 
     <RelativeLayout
+        android:id="@+id/operation_button_copy"
         android:layout_width="50dp"
         android:layout_height="match_parent"
-        android:background="@color/white"
+        android:background="@drawable/play_button_clicked"
         android:gravity="center"
-        android:paddingVertical="1dp">
+        android:paddingVertical="1dp"
+        android:clickable="true"
+        android:tag="2"
+        >
 
         <ImageView
-            android:id="@+id/operation_icn"
+            android:id="@+id/operation_icon_copy"
             android:layout_width="25dp"
-            android:layout_height="25dp" />
+            android:layout_height="25dp"
+            android:src="@drawable/ic_blue_copy"
+            android:layout_centerHorizontal="true"
+            />
 
         <TextView
-            android:id="@+id/operation_nme"
+            android:id="@+id/operation_name_copy"
             android:textAlignment="center"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_below="@id/operation_icn"
-            android:text=""
+            android:layout_below="@id/operation_icon_copy"
+            android:text="copy"
+            android:layout_centerHorizontal="true"
             android:textColor="@color/pureBlack"
-            android:textSize="15dp" />
+            android:textSize="14dp" />
     </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/operation_button_move"
+        android:layout_width="50dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/play_button_clicked"
+        android:gravity="center"
+        android:paddingVertical="1dp"
+        android:clickable="true"
+        android:tag="3"
+        >
+
+        <ImageView
+            android:id="@+id/operation_icon_move"
+            android:layout_width="25dp"
+            android:layout_height="25dp"
+            android:src="@drawable/ic_blue_move"
+            android:layout_centerHorizontal="true"/>
+
+        <TextView
+            android:id="@+id/operation_name_move"
+            android:textAlignment="center"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/operation_icon_move"
+            android:layout_centerHorizontal="true"
+            android:text="move"
+            android:textColor="@color/pureBlack"
+            android:textSize="14dp" />
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/operation_button_rename"
+        android:layout_width="50dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/play_button_clicked"
+        android:gravity="center"
+        android:paddingVertical="1dp"
+        android:clickable="true"
+        android:tag="4"
+        >
+
+        <ImageView
+            android:id="@+id/operation_icon_rename"
+            android:layout_width="25dp"
+            android:layout_height="25dp"
+            android:layout_centerHorizontal="true"
+            android:src="@drawable/ic_blue_rename"/>
+
+        <TextView
+            android:id="@+id/operation_name_rename"
+            android:textAlignment="center"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/operation_icon_rename"
+            android:layout_centerHorizontal="true"
+            android:text="rename"
+            android:textColor="@color/pureBlack"
+            android:textSize="14dp" />
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/operation_button_delete"
+        android:layout_width="50dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/play_button_clicked"
+        android:gravity="center"
+        android:paddingVertical="1dp"
+        android:clickable="true"
+        android:tag="5"
+        >
+
+        <ImageView
+            android:id="@+id/operation_icon_delete"
+            android:layout_width="25dp"
+            android:layout_height="25dp"
+            android:layout_centerHorizontal="true"
+            android:src="@drawable/ic_blue_delete"/>
+
+        <TextView
+            android:id="@+id/operation_name_delete"
+            android:textAlignment="center"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/operation_icon_delete"
+            android:layout_centerHorizontal="true"
+            android:text="delete"
+            android:textColor="@color/pureBlack"
+            android:textSize="14dp" />
+    </RelativeLayout>
+
+
+
+    <RelativeLayout
+        android:id="@+id/operation_button_cancel"
+        android:layout_width="50dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/play_button_clicked"
+        android:gravity="center"
+        android:paddingVertical="1dp"
+        android:clickable="true"
+        android:tag="7"
+        >
+
+        <ImageView
+            android:id="@+id/operation_icon_cancel"
+            android:layout_width="25dp"
+            android:layout_height="25dp"
+            android:layout_centerHorizontal="true"
+            android:src="@drawable/ic_blue_cancel"/>
+
+        <TextView
+            android:id="@+id/operation_name_cancel"
+            android:textAlignment="center"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/operation_icon_cancel"
+            android:layout_centerHorizontal="true"
+            android:text="cancel"
+            android:textColor="@color/pureBlack"
+            android:textSize="14dp" />
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/operation_button_paste"
+        android:layout_width="50dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/play_button_clicked"
+        android:gravity="center"
+        android:paddingVertical="1dp"
+        android:clickable="true"
+        android:tag="8"
+        >
+
+        <ImageView
+            android:id="@+id/operation_icon_paste"
+            android:layout_width="25dp"
+            android:layout_height="25dp"
+            android:layout_centerHorizontal="true"
+            android:src="@drawable/ic_blue_paste"
+            />
+
+        <TextView
+            android:id="@+id/operation_name_paste"
+            android:textAlignment="center"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/operation_icon_paste"
+            android:layout_centerHorizontal="true"
+            android:text="paste"
+            android:textColor="@color/pureBlack"
+            android:textSize="14dp" />
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/operation_button_newFolder"
+        android:layout_width="50dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/play_button_clicked"
+        android:gravity="center"
+        android:paddingVertical="1dp"
+        android:clickable="true"
+        android:tag="9"
+
+        >
+
+        <ImageView
+            android:id="@+id/operation_icon_newFolder"
+            android:layout_width="25dp"
+            android:layout_height="25dp"
+            android:src="@drawable/ic_blue_newfolder"
+            android:layout_centerHorizontal="true"/>
+
+        <TextView
+            android:id="@+id/operation_name_newFolder"
+            android:textAlignment="center"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/operation_icon_newFolder"
+            android:layout_centerHorizontal="true"
+            android:text="new"
+            android:textColor="@color/pureBlack"
+            android:textSize="14dp" />
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/operation_button_more"
+        android:layout_width="50dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/play_button_clicked"
+        android:gravity="center"
+        android:paddingVertical="1dp"
+        android:clickable="true"
+        android:tag="6"
+        >
+
+        <ImageView
+            android:id="@+id/operation_icon_more"
+            android:layout_width="25dp"
+            android:layout_height="25dp"
+            android:layout_centerHorizontal="true"
+            android:src="@drawable/ic_blue_more"/>
+
+        <TextView
+            android:id="@+id/operation_name_more"
+            android:textAlignment="center"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/operation_icon_more"
+            android:layout_centerHorizontal="true"
+            android:text="more"
+            android:textColor="@color/pureBlack"
+            android:textSize="14dp" />
+    </RelativeLayout>
+
+
+
+
 </LinearLayout>

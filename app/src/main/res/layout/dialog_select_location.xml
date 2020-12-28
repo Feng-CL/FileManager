@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/layout_for_dialog_locationPicker"
+    android:orientation="vertical"
+    android:layout_gravity="center"
+    android:layout_width="300dp"
+    android:layout_height="600dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:orientation="horizontal"
+        android:layout_gravity="fill_horizontal"
+        android:layout_height="50dp">
+        <ImageButton
+            android:id="@+id/imgbtn_location_picker_dialog_back"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:src="@drawable/ic_black_nav_back"
+            android:background="@color/transparent"
+            />
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            >
+            <TextView
+
+                android:maxLines="1"
+                android:paddingVertical="10dp"
+                android:textSize="20dp"
+                android:id="@+id/textview_dialog_display_location"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                />
+        </HorizontalScrollView>
+        <ImageButton
+            android:id="@+id/imgbtn_mkdir"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:background="@color/transparent"
+            android:src="@drawable/ic_black_mkdir"
+            android:layout_marginRight="0dp"
+            />
+    </LinearLayout>
+    <ListView
+        android:id="@+id/listview_for_selecting_folders"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:minHeight="50dp"
+        android:layout_weight="1"
+        />
+    <TextView
+        android:id="@+id/textview_loc_pick_emptyFolder_tip"
+        android:gravity="center"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        />
+
+</LinearLayout>

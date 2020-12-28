@@ -2,6 +2,8 @@ package com.scut.filemanager.ui;
 
 import android.content.Context;
 import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -20,6 +22,8 @@ import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.Service;
 import com.scut.filemanager.ui.adapter.SimpleListViewItemAssembler;
+import com.scut.filemanager.ui.dialog.LocationPickDialogDelegate;
+import com.scut.filemanager.ui.transaction.TransactionProxy;
 import com.scut.filemanager.util.protocols.DisplayFolderChangeResponder;
 import com.scut.filemanager.util.protocols.KeyDownEventHandler;
 
@@ -52,7 +56,7 @@ public class TabViewController extends BaseController implements AdapterView.OnI
     private ProgressBar progressCircle;
     //private boolean[] loadingLock={true,true,true}; //用于同步一些行为
 
-    static private FileHandle[] SuperFolder=new FileHandle[2]; //特殊的文件句柄，用于显示内外存储的文件夹
+    static public FileHandle[] SuperFolder=new FileHandle[2]; //特殊的文件句柄，用于显示内外存储的文件夹
 
 
     protected OPERATION_STATE operation_state=OPERATION_STATE.STATIC; //标记当前状态
@@ -80,18 +84,21 @@ public class TabViewController extends BaseController implements AdapterView.OnI
 //    };
 
     public TabViewController(Service svc, ViewGroup parentView, View viewManaged,ListView listView) throws Exception {
+        super();
         service=svc;
         this.parentView=parentView;
         tabView=viewManaged;
+        //设置监听
         listViewInTab=listView;
         listViewInTab.setOnItemClickListener(this);
         listViewInTab.setOnItemLongClickListener(this);
         listViewInTab.setOnScrollListener(this);
-        //设置监听
 
 
         locationBarController=new LocationBarController(null, (ViewStub) tabView.findViewById(R.id.viewStub_for_locationBar),this);
         operationBarController=new OperationBarController((ViewStub)tabView.findViewById(R.id.rootview_for_operationBar));
+        operationBarController.setButtonOnClickListener(new OnOperationBarButtonClickedListener());
+
         progressCircle=tabView.findViewById(R.id.progressbar_loading);
         initStaticMember();
         LoadFirstTab();
@@ -161,7 +168,9 @@ public class TabViewController extends BaseController implements AdapterView.OnI
             }
             SimpleListViewItemAssembler.ItemData item =(SimpleListViewItemAssembler.ItemData)adapter.getItem(position);
             item.isChecked=!checkState; //同时更新数据集中的内容
+
         }
+        operationBarController.onOperationStatusChange(operation_state,selectedCount);
     }
 
 
@@ -173,6 +182,11 @@ public class TabViewController extends BaseController implements AdapterView.OnI
     @Override
     public Handler getHandler() {
         return mHandler;
+    }
+
+    @Override
+    public Service getFileManagerCoreService() {
+        return service;
     }
 
     @Override   //Callback method to be invoked while the list view or grid view is being scrolled.
@@ -204,7 +218,12 @@ public class TabViewController extends BaseController implements AdapterView.OnI
                 }
                 else{
                     current=parent;
-                    parent=current.getParentFileHandle();
+                    if(current.isAndroidRoot()) {
+                        parent = null;
+                    }
+                    else{
+                        parent=current.getParentFileHandle();
+                    }
                     adapter.setFolder(current);
                 }
                 return true;
@@ -230,9 +249,11 @@ public class TabViewController extends BaseController implements AdapterView.OnI
     public void setDisplayFolder(@NonNull FileHandle folder){
         current=folder;
         if(current.isAndroidRoot()){
-            isReachRoot=true;
+            parent=null;
         }
-        parent=folder.getParentFileHandle();
+        else {
+            parent = folder.getParentFileHandle();
+        }
         adapter.setFolder(current);
         selectedCount=0;
     }
@@ -242,7 +263,17 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         return onReturnKeyDown(parentView);
     }
 
+
+    /*
+        @Description:执行选中全部的操作
+        @Params:null
+    */
+
     public void setSelectAll(){
+        adapter.setCheckBoxVisibility(View.VISIBLE);
+        operation_state=OPERATION_STATE.SELECTING;
+        selectedCount=adapter.getCount();
+        operationBarController.onOperationStatusChange(operation_state,selectedCount);
         adapter.setSelectAll();
     }
 
@@ -268,6 +299,7 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         Log.d(this.getClass().getName(),"on item long click event");
         if(operation_state==OPERATION_STATE.STATIC){
             //更新当前状态为SELECTING
+            selectedCount=1;
             operation_state=OPERATION_STATE.SELECTING;
             //设置checkbox可见性
             adapter.setCheckBoxVisibility(View.VISIBLE);
@@ -282,11 +314,16 @@ public class TabViewController extends BaseController implements AdapterView.OnI
             item.isChecked=true;
             //Log.d("tabViewController","focus Status: "+checkBoxLongClicked.isFocused());
 
+            operationBarController.onOperationStatusChange(operation_state,selectedCount);
+            Log.d("selectCount", ": "+selectedCount );
             //事件被消费，返回true
             return true;
         }
+
         return false;
     }
+
+
 
     /*
     清空当前的操作状态。
@@ -295,6 +332,11 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         operation_state=OPERATION_STATE.STATIC;
         selectedCount=0;
     }
+
+    /*
+        @Description:初始化静态变量
+        @Params:
+    */
 
     private void initStaticMember(){
         if(service!=null){
@@ -308,7 +350,77 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         }
     }
 
+    protected void setUpHandler(){
+        this.mHandler=new Handler(Looper.getMainLooper()){
+            @Override
+            public void handleMessage(@NonNull Message msg) {
+                switch (msg.what){
+                    default:
+                        break;
+                }
+            }
+        };
+    }
 
+
+    protected void setUpProxy(){
+        this.proxy=new TransactionProxy(this){
+            @Override
+            public void sendRequest(Message message) {
+                super.sendRequest(message);
+            }
+        };
+    }
+
+    /*
+        @Description:处理操作栏按钮的回调
+    */
+
+    private class OnOperationBarButtonClickedListener implements View.OnClickListener{
+
+        /*
+            @Description:
+                        private int open_button_id = R.id.operation_button_open;  //1
+                        private int copy_button_id = R.id.operation_button_copy;    //2
+                        private int move_button_id = R.id.operation_button_move;    //3
+                        private int rename_button_id = R.id.operation_button_rename; //4
+                        private int delete_button_id = R.id.operation_button_delete; //5
+                        private int more_button_id = R.id.operation_button_more; //6
+                        private int cancel_button_id = R.id.operation_button_cancel; //7
+                        private int paste_button_id = R.id.operation_button_paste; //8
+                        private int newFolder_button_id = R.id.operation_button_newFolder; //9
+        */
+
+        @Override
+        public void onClick(View view) {
+            int button_tag= (int) view.getTag();
+            switch (button_tag){
+                case 1:
+                    break;
+                case 2:
+                    LocationPickDialogDelegate locationPickDialogController=new LocationPickDialogDelegate(current,
+                            TabViewController.this );
+                    locationPickDialogController.showDialog();
+                    break;
+                case 3:
+                    break;
+                case 4:
+                    break;
+                case 5:
+                    break;
+                case 6:
+                    break;
+                case 7:
+                    break;
+                case 8:
+                    break;
+                case 9:
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
 
 
 

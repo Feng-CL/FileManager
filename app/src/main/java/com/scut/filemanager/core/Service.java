@@ -35,7 +35,7 @@ public class Service {
         RECURSIVE_COPY //递归复制文件夹
     }
 
-    private Service(Context app_context){
+    private Service(android.app.Activity app_context){
         //initialize member object
         if(app_context==null){
             Log.e("core.Service","can not initialize without context");
@@ -136,14 +136,14 @@ public class Service {
         EXCEPTION                   //意外情况，用于调试
     }
 
-    public static Service getInstance(Context app_context){
+    public static Service getInstance(android.app.Activity app_context){
         if (!(svc instanceof Service)) {
             svc = new Service(app_context);
         }
         return svc;
     }
 
-    public Context getContext(){
+    public android.app.Activity getContext(){
         return context;
     }
 
@@ -488,7 +488,7 @@ public class Service {
     private static File app_private_internal_dir=null;
     private static SERVICE_STATUS status;
     private static SERVICE_STATUS sdcard_status;
-    private static android.content.Context context;
+    private static android.app.Activity context;
 
     //concurrent
     private static ExecutorService svc_executor;

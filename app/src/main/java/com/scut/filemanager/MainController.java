@@ -45,7 +45,7 @@ public class MainController {
 
     }
 
-    public boolean startService(Context app_context) {
+    public boolean startService(android.app.Activity app_context) {
         service = Service.getInstance(app_context);
         context = app_context;
         main_activity = (AppCompatActivity) context;
