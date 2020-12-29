@@ -63,6 +63,9 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
         }
     };
 
+    //status maintain
+
+
     //task
     private AssembleTask assembleTask;
 
@@ -120,12 +123,17 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
         }
     }
 
+    /*
+        @Description:
+    */
+
     public void setCheckBoxVisibility(int visibility){
         checkBoxVisibility=visibility;
         notifyDataSetChanged();
     }
 
     public void setAllItemDataCheckedState(boolean state){
+        //hasCheckedItem=state;
         for (ItemData item:itemDataList
              ) {
             item.isChecked=state;
@@ -140,6 +148,25 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
             }
         }
         return selected_handles_list;
+    }
+
+    /*
+        @Description:获取选中文件，如果选中多个文件，此时为第一个文件，否则为空
+    */
+
+    public FileHandle getSelectedFile(){
+        int index=-1;
+        for (int i = 0; i < itemDataList.size(); i++) {
+            if(itemDataList.get(i).isChecked){
+                index=i;
+            }
+        }
+        if(index!=-1){
+            return list_of_files.get(index);
+        }
+        else {
+            return null;
+        }
     }
 
     /*
@@ -278,6 +305,7 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
     }
 
     public void setSelectAll(){
+        //hasCheckedItem=true;
         for (ItemData item :
                 itemDataList) {
             item.isChecked = true;
@@ -381,6 +409,7 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
             }
         }
     }
+
 
     private void dispatchFolderChangedEventToResponders(){
         for (DisplayFolderChangeResponder responder:responders

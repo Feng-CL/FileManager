@@ -14,5 +14,12 @@
     <string name="editText_illegal_input_hint">Cannot contain illegal character</string>
 
     <string name="ToastHint_mkdir_true">Make Directory Successfully</string>
-    <string name="ToastHint_mkdir_false">Make Directory Fails</string>
+    <string name="ToastHint_mkdir_false">Make Directory Failed</string>
+    <string name="ToastHint_makeFile_true">Create File Successfully</string>
+    <string name="ToastHint_makeFile_false">Create File Failed</string>
+    <string name="ToastHint_rename_false">rename file failed</string>
+    <string name="ToastHint_rename_true">rename file successfully</string>
+    <string name="dialogTitle_rename">Rename</string>
+    <string name="ToastHint_invalid_location_tip">Invalid location</string>
+    <string name="ToastHint_unknown_error">unknown error</string>
 </resources>

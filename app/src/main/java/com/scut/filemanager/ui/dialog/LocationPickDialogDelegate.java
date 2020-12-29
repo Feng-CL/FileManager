@@ -30,6 +30,7 @@ import com.scut.filemanager.core.FileHandleFilter;
 import com.scut.filemanager.core.Service;
 import com.scut.filemanager.ui.BaseController;
 import com.scut.filemanager.ui.TabViewController;
+import com.scut.filemanager.ui.protocols.LocationPickerCallback;
 import com.scut.filemanager.ui.transaction.TransactionProxy;
 import com.scut.filemanager.util.FMArrays;
 
@@ -38,8 +39,9 @@ import java.util.List;
 
 public class LocationPickDialogDelegate extends BaseController
         implements View.OnClickListener,    //监听视图点击事件
-        DialogInterface.OnClickListener,  //监听对话框按钮事件
-        AdapterView.OnItemClickListener //监听listView
+        AdapterView.OnItemClickListener, //监听listView
+    com.scut.filemanager.ui.protocols.InputConfirmCallBack
+
 {
 
     private FileHandle currentFileHandle=null;
@@ -54,14 +56,16 @@ public class LocationPickDialogDelegate extends BaseController
     private ListView listView;
     //data to be assembled
     private ArrayAdapter<FileHandle> arrayAdapter;
-
+    //signal variables:
+    private boolean notifyParentControllerUpdateContent=false;
     //handler and parentController
     private BaseController parentController;
 
-
-
     //other useful variables
     private FileHandle[] superFolder= TabViewController.SuperFolder;
+
+    //callback
+    private LocationPickerCallback callback;
 
     //util
     private FileHandleFilter folderFilter=new FileHandleFilter() {
@@ -71,17 +75,7 @@ public class LocationPickDialogDelegate extends BaseController
         }
     };
 
-    @Override
-    public void onClick(DialogInterface dialogInterface, int i) {
-        Message msg=Message.obtain();
-        msg.what= MessageCode.PICK_LOCATION_OK;
-        msg.obj=currentFileHandle;
-        this.parentController.getHandler().sendMessage(msg);
 
-        //When the user touches any of the action buttons created with an AlertDialog.Builder,
-        // the system dismisses the dialog for you. ?
-        //dismiss();
-    }
 
     @Override
     public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
@@ -102,11 +96,7 @@ public class LocationPickDialogDelegate extends BaseController
     }
 
 
-    //static members
-    static public class MessageCode{
-        static public final int PICK_ACTION_CANCEL=0;
-        static public final int PICK_LOCATION_OK=1;
-    }
+
 
     /*
     @Example:
@@ -134,8 +124,13 @@ public class LocationPickDialogDelegate extends BaseController
             return builder.create();
         }
      */
-    public LocationPickDialogDelegate(FileHandle lastFileHandle, @NonNull BaseController parentController){
+    /*
+        @Description:传入参数包括上一次的位置，父控制器（主要用于获取布局上下文）以及回调接口
+    */
+
+    public LocationPickDialogDelegate(FileHandle lastFileHandle, @NonNull BaseController parentController, LocationPickerCallback callback){
         super();
+        this.callback=callback;
         this.parentController=parentController;
         svc=this.parentController.getFileManagerCoreService();
 
@@ -157,11 +152,20 @@ public class LocationPickDialogDelegate extends BaseController
         //set up dialog title and buttons
         builder.setTitle(R.string.dialog_locationPicker_title);
 
-        builder.setPositiveButton(R.string.dialog_locationPicker_positiveBtnTitle,this);
+        builder.setPositiveButton(R.string.dialog_locationPicker_positiveBtnTitle, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                callback.onLocationPicked(currentFileHandle);
+                //When the user touches any of the action buttons created with an AlertDialog.Builder,
+                // the system dismisses the dialog for you. ?
+                //dismiss();
+            }
+        });
         //negative button has been delegated ?
         builder.setNegativeButton(R.string.dialog_locationPicker_negativeBtnTitle, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
+                callback.onLocationPickerDialogCancel(currentFileHandle,notifyParentControllerUpdateContent);
                 dialogInterface.cancel();
             }
         });
@@ -273,8 +277,8 @@ public class LocationPickDialogDelegate extends BaseController
         }
         else{                                                   //新建文件夹
             Log.d("locationPicker","newFolderBtn pressed");
-            MakeNewDialogDelegate delegate=new MakeNewDialogDelegate(MakeNewDialogDelegate.OutterMessageCode.NEW_DIRECTORY,
-                    this);
+            SingleLineInputDialogDelegate delegate=new SingleLineInputDialogDelegate(SingleLineInputDialogDelegate.DialogType.NEW_DIRECTORY,
+                    this,this);
             delegate.showDialog();
         }
     }
@@ -316,6 +320,27 @@ public class LocationPickDialogDelegate extends BaseController
     */
     private boolean validateLocation(){
         return !FileHandle.superHandle.isDenotedToSameFile(currentFileHandle);
+    }
+
+    /*
+        @Description:对话框的接口方法
+    */
+
+    @Override
+    public void onInputConfirmClicked(String text, int action) {
+        String fileName= text; //确保有效
+        boolean mkdir_result=FileHandle.makeDirectory(currentFileHandle,fileName);
+        if(mkdir_result){
+            Toast.makeText(getContext(),R.string.ToastHint_mkdir_true,Toast.LENGTH_SHORT)
+                    .show();
+
+            //update adapter resource
+            setNewCollection(currentFileHandle.listFiles(folderFilter));
+        }
+        else{
+            Toast.makeText(getContext(),R.string.ToastHint_mkdir_false,Toast.LENGTH_SHORT)
+                    .show();
+        }
     }
 
     private static class InnerMessageCode{
@@ -368,12 +393,14 @@ public class LocationPickDialogDelegate extends BaseController
         };
     }
 
+
+
     protected void setUpProxy(){
         this.proxy=new TransactionProxy(this){
             @Override
             public void sendRequest(Message message) {
                 switch (message.what){
-                    case MakeNewDialogDelegate.OutterMessageCode.NEW_DIRECTORY:
+                    case SingleLineInputDialogDelegate.DialogType.NEW_DIRECTORY:
                         String fileName= (String) message.obj; //确保有效
                         boolean mkdir_result=FileHandle.makeDirectory(currentFileHandle,fileName);
                         if(mkdir_result){

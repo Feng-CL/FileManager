@@ -27,7 +27,9 @@ import java.net.SocketException;
 import java.util.List;
 
 import com.scut.filemanager.*;
+import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.concurrent.SharedThreadPool;
+import com.scut.filemanager.ui.dialog.SingleLineInputDialogDelegate;
 
 public class MainActivity extends AppCompatActivity
 
@@ -141,6 +143,13 @@ public class MainActivity extends AppCompatActivity
                 if(controller.getTabViewController()!=null){
                     controller.getTabViewController().setSelectAll();
                 }
+                consume=false;
+                break;
+            case R.id.main_menu_item_mkdir:
+                if(controller.getTabViewController()!=null){
+
+                }
+                consume=false;
             default:
                 consume=super.onOptionsItemSelected(item);
                 break;

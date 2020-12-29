@@ -6,7 +6,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Handler;
 import android.text.InputType;
-import android.util.Log;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -15,9 +14,15 @@ import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.Service;
 import com.scut.filemanager.ui.BaseController;
-import com.scut.filemanager.ui.transaction.Request;
+import com.scut.filemanager.ui.protocols.InputConfirmCallBack;
 
-public class MakeNewDialogDelegate extends BaseController{
+/*
+    @Description:一个可复用的单行输入代理控制器，在创建时，只需要为其指定类型，
+    在做数据传递时，通过传入的parentController.getProxy().sendRequest(Message)
+    按照预定义的协议传递数据
+*/
+
+public class SingleLineInputDialogDelegate extends BaseController{
 
     //UI　Outlets
     private EditText editText;
@@ -25,25 +30,30 @@ public class MakeNewDialogDelegate extends BaseController{
 
     //define dialog type
     private int type;
+    //define callback object
+    private InputConfirmCallBack callBack;
 
     /*
         @Description:为创建对话指定类型，类型有两种，定义在OutterMessageCode中
     */
-    public MakeNewDialogDelegate(int TYPE, BaseController parentController){
-
+    public SingleLineInputDialogDelegate(int TYPE, BaseController parentController, final InputConfirmCallBack callBack){
+        this.callBack=callBack;
         this.parentController=parentController;
         type=TYPE;
         String dialogTitle="";
         switch (TYPE){
-            case OutterMessageCode.NEW_DIRECTORY:
+            case DialogType.NEW_DIRECTORY:
                 dialogTitle=getContext().getResources().getString(R.string.dialogTitle_newFolder);
                 break;
-            case OutterMessageCode.NEW_FILE:
+            case DialogType.NEW_FILE:
                 dialogTitle=getContext().getResources().getString(R.string.dialogTitle_newFile);
+                break;
+            case DialogType.RENAME:
+                dialogTitle=parentController.getContext().getResources().getString(R.string.dialogTitle_rename);
                 break;
             default:
                 //shouldn't happen !
-                type=OutterMessageCode.ERROR;
+                type= DialogType.ERROR;
                 dialogTitle="error";
                 break;
         }
@@ -54,22 +64,29 @@ public class MakeNewDialogDelegate extends BaseController{
             @Override
             public void onClick(DialogInterface dialogInterface, int which) {
                 switch (which){
-                    case DialogInterface.BUTTON_POSITIVE: {
+                    case DialogInterface.BUTTON_POSITIVE: { //确认按钮
 
-                        //判断editText  中的内容
                         if(editText!=null) {
-                            String fileName=editText.getText().toString();
-                            if(fileName.isEmpty()||FileHandle.containsIllegalChar(fileName)){
-                                //alert user
-                                Toast.makeText(getContext(),R.string.editText_illegal_input_hint,Toast.LENGTH_SHORT)
-                                        .show();
-                            }
-                            else {
-                                MakeNewDialogDelegate.this.parentController.getProxy()
-                                        .sendRequest(Request.obtain(
-                                                type, fileName //通过Message发送结果给控制器代理 [typeIndicator// ,newFileName]
-                                        ));
-                               
+                            //判断editText  中的内容
+                            switch (type){
+                                //三种情况相同的处理流程
+                                case DialogType.NEW_DIRECTORY: case DialogType.NEW_FILE: case DialogType.RENAME:{
+                                    String fileName=editText.getText().toString();
+                                    if(fileName.isEmpty()||FileHandle.containsIllegalChar(fileName)){
+                                        //alert user
+                                        Toast.makeText(getContext(),R.string.editText_illegal_input_hint,Toast.LENGTH_SHORT)
+                                                .show(); //this is the temporary alert code,consider to replace it in the next version
+                                    }
+
+                                    else {
+                                        //重命名操作需要检验合理行,这里需要做提示操作,同时需要为对话框重新写onDismiss 操作
+                                        callBack.onInputConfirmClicked(fileName,type );
+                                    }
+                                }
+                                break;
+                                default: //deal with other case
+                                    break;
+
                             }
                         }
                         else{
@@ -77,13 +94,16 @@ public class MakeNewDialogDelegate extends BaseController{
                         }
                     }
                     break;
-                    case DialogInterface.BUTTON_NEGATIVE:{
+                    case DialogInterface.BUTTON_NEGATIVE:{ //取消按钮
                         dialogInterface.cancel();
                     }
                     default:
                         break;
                 }
             }
+
+
+
         };
 
         builder.setTitle(dialogTitle)
@@ -125,9 +145,10 @@ public class MakeNewDialogDelegate extends BaseController{
     }
 
 
-    static public class OutterMessageCode{
+    static public class DialogType {
         static public final int NEW_FILE=1;
         static public final int NEW_DIRECTORY=2;
+        static public final int RENAME=4;
         static public final int ERROR=3;
     }
 }

@@ -15,6 +15,7 @@ import android.widget.AdapterView;
 import android.widget.CheckBox;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
@@ -23,7 +24,9 @@ import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.Service;
 import com.scut.filemanager.ui.adapter.SimpleListViewItemAssembler;
 import com.scut.filemanager.ui.dialog.LocationPickDialogDelegate;
-import com.scut.filemanager.ui.transaction.TransactionProxy;
+import com.scut.filemanager.ui.dialog.SingleLineInputDialogDelegate;
+import com.scut.filemanager.ui.protocols.InputConfirmCallBack;
+import com.scut.filemanager.ui.protocols.LocationPickerCallback;
 import com.scut.filemanager.util.protocols.DisplayFolderChangeResponder;
 import com.scut.filemanager.util.protocols.KeyDownEventHandler;
 
@@ -32,6 +35,7 @@ import java.io.IOException;
 
 public class TabViewController extends BaseController implements AdapterView.OnItemClickListener, KeyDownEventHandler
     , AdapterView.OnItemLongClickListener, AbsListView.OnScrollListener
+    , InputConfirmCallBack, LocationPickerCallback
 {
 
     /*
@@ -42,35 +46,36 @@ public class TabViewController extends BaseController implements AdapterView.OnI
     private OperationBarController operationBarController; //操作栏控制器
     private LocationBarController locationBarController; //地址栏控制器
 
+    //filemanager.core.*
+    private Service service=null;
     private FileHandle current=null; //当前视图引用的文件夹
     private FileHandle parent=null; //当前视图引用文件夹的父文件夹
 
     private boolean isReachRoot;    //判断当前视图是否应该继续返回键的事件
-    private int selectedCount=0; //一个额外但很有用的记数变量，记录选中文件的数量
 
-    private Service service=null;
+    //UI outlets
     private ListView listViewInTab =null;  //该控制器控制的视图
     private View tabView=null;
+    private ProgressBar progressCircle;
 
     private SimpleListViewItemAssembler adapter; //视图的数据来源
-    private ProgressBar progressCircle;
     //private boolean[] loadingLock={true,true,true}; //用于同步一些行为
 
     static public FileHandle[] SuperFolder=new FileHandle[2]; //特殊的文件句柄，用于显示内外存储的文件夹
 
 
+    private int selectedCount=0; //一个额外但很有用的记数变量，记录选中文件的数量
     protected OPERATION_STATE operation_state=OPERATION_STATE.STATIC; //标记当前状态
     protected OPERATION_STATE scrolling_state=OPERATION_STATE.STATIC; //标记滚动状态
+
 
 
 
     //定义当前视图下的操作状态
     enum OPERATION_STATE{
         STATIC,
-        SCROLLING,
-        SELECTING, //选择状态
-        COPY,
-        CUT,
+        SCROLLING, SELECTING, //选择状态
+        COPY, CUT, RENAME,NEW_FILE,MAKE_DIRECTORY,DELETE,
         OTHER //更多状态未定义
         ;
     }
@@ -207,7 +212,7 @@ public class TabViewController extends BaseController implements AdapterView.OnI
     }
 
     public boolean onReturnKeyDown(AdapterView<?> parentView) throws IOException {
-       if(operation_state!=OPERATION_STATE.SELECTING) {
+       if(operation_state==OPERATION_STATE.STATIC) {
 
             if(!isReachRoot){
                 if(current.isAndroidRoot()){
@@ -265,9 +270,83 @@ public class TabViewController extends BaseController implements AdapterView.OnI
 
 
     /*
-        @Description:执行选中全部的操作
+        @Description:
         @Params:null
     */
+    @Override
+    public void onInputConfirmClicked(String text, int action) {
+        //需要重置状态，刷新界面为STATIC
+
+        boolean result = false;
+        switch (action) {
+            case SingleLineInputDialogDelegate.DialogType.NEW_DIRECTORY: {
+
+                if (current.isInAndroidVolume()) { //验证位置
+                    if (FileHandle.makeDirectory(current, text)) { //验证结果
+                        Toast.makeText(getContext(), R.string.ToastHint_mkdir_true, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(getContext(), R.string.ToastHint_mkdir_false, Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Toast.makeText(getContext(), R.string.ToastHint_invalid_location_tip, Toast.LENGTH_SHORT).show();
+                }
+            }
+            break;
+            case SingleLineInputDialogDelegate.DialogType.NEW_FILE: {
+                if (current.isInAndroidVolume()) {
+                    FileHandle newFile = new FileHandle(current, text);
+                    result = newFile.create();
+                    if (!result) {
+                        Toast.makeText(getContext(), R.string.ToastHint_makeFile_false, Toast.LENGTH_SHORT).show();
+                    } else {
+
+                    }
+                } else {
+                    Toast.makeText(getContext(), R.string.ToastHint_invalid_location_tip, Toast.LENGTH_SHORT).show();
+                }
+
+            }
+            break;
+            case SingleLineInputDialogDelegate.DialogType.RENAME: { //判断是否存在同名需要在回调发生前检测，即需要在对话框结束前检测
+                //重复判断
+                if(operation_state==OPERATION_STATE.RENAME){
+                    FileHandle fileNeedRename=adapter.getSelectedFile();
+                    if(fileNeedRename!=null){
+                        result=fileNeedRename.rename(text);
+                        if(result){
+                            Toast.makeText(getContext(),R.string.ToastHint_rename_true,Toast.LENGTH_SHORT).show();
+                        }
+                        else {
+                            Toast.makeText(getContext(),R.string.ToastHint_rename_false,Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                    else {
+                        Toast.makeText(getContext(),R.string.ToastHint_unknown_error,Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }
+            break;
+        }
+        clearOperationState();
+        this.mHandler.sendEmptyMessage(UIMessageCode.NOTIFY_UPDATE_DATASET);
+    }
+
+    @Override
+    public void onLocationPicked(FileHandle location) {
+
+    }
+
+    @Override
+    public void onLocationPickerDialogCancel(FileHandle currentLocation, boolean whetherNeedToUpdateView) {
+        //state change here
+        operation_state=OPERATION_STATE.SELECTING;
+        if(whetherNeedToUpdateView){
+            setDisplayFolder(current);
+        }
+
+    }
+
+
 
     public void setSelectAll(){
         adapter.setCheckBoxVisibility(View.VISIBLE);
@@ -277,6 +356,9 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         adapter.setSelectAll();
     }
 
+    public FileHandle getCurrentLocationFileHandle(){
+        return current;
+    }
 
     /*
     @Description: 长按item的回调
@@ -330,7 +412,10 @@ public class TabViewController extends BaseController implements AdapterView.OnI
      */
     private void clearOperationState(){
         operation_state=OPERATION_STATE.STATIC;
+        adapter.setCheckBoxVisibility(View.INVISIBLE);
+        adapter.setAllItemDataCheckedState(false);
         selectedCount=0;
+        operationBarController.onOperationStatusChange(operation_state,selectedCount);
     }
 
     /*
@@ -355,6 +440,9 @@ public class TabViewController extends BaseController implements AdapterView.OnI
             @Override
             public void handleMessage(@NonNull Message msg) {
                 switch (msg.what){
+                    case UIMessageCode.NOTIFY_UPDATE_DATASET:
+                        setDisplayFolder(current);
+                        break;
                     default:
                         break;
                 }
@@ -363,17 +451,9 @@ public class TabViewController extends BaseController implements AdapterView.OnI
     }
 
 
-    protected void setUpProxy(){
-        this.proxy=new TransactionProxy(this){
-            @Override
-            public void sendRequest(Message message) {
-                super.sendRequest(message);
-            }
-        };
-    }
 
     /*
-        @Description:处理操作栏按钮的回调
+        @Description:处理操作栏按钮的内部监听处理类
     */
 
     private class OnOperationBarButtonClickedListener implements View.OnClickListener{
@@ -397,29 +477,65 @@ public class TabViewController extends BaseController implements AdapterView.OnI
             switch (button_tag){
                 case 1:
                     break;
-                case 2:
-                    LocationPickDialogDelegate locationPickDialogController=new LocationPickDialogDelegate(current,
-                            TabViewController.this );
+                case 2: {
+                    //需要通过operation_state来标记点击操作栏后进入的状态，否则回调函数无法知道结束后要做什么
+                    operation_state = OPERATION_STATE.COPY;
+                    LocationPickDialogDelegate locationPickDialogController = new LocationPickDialogDelegate(current,
+                            TabViewController.this, TabViewController.this);
                     locationPickDialogController.showDialog();
+                }
                     break;
-                case 3:
+                case 3:{
+                    operation_state=OPERATION_STATE.CUT;
+                    LocationPickDialogDelegate locationPickDialogController = new LocationPickDialogDelegate(current,
+                            TabViewController.this, TabViewController.this);
+                    locationPickDialogController.showDialog();
+                }
                     break;
-                case 4:
+                case 4: {
+                    operation_state = OPERATION_STATE.RENAME;
+                    SingleLineInputDialogDelegate dialogDelegate = new SingleLineInputDialogDelegate(SingleLineInputDialogDelegate.DialogType.RENAME, TabViewController.this, TabViewController.this);
+                    dialogDelegate.showDialog();
+                }
                     break;
-                case 5:
+                case 5:{
+                    operation_state=OPERATION_STATE.DELETE;
+                }
                     break;
-                case 6:
+                case 6:{
+
+                }
                     break;
-                case 7:
+                case 7:{
+                    operation_state=OPERATION_STATE.STATIC;
+                    TabViewController.this.operationBarController.onOperationStatusChange(operation_state,TabViewController.this.selectedCount);
+                }
                     break;
-                case 8:
+                case 8:{
+
+                }
                     break;
-                case 9:
+                case 9:{
+
+                }
                     break;
                 default:
                     break;
             }
         }
+    }
+
+
+
+
+    public static class UIMessageCode {
+       public  static final int NOTIFY_UPDATE_DATASET=0;
+    }
+
+
+    public static class ProxyMessageCode{
+        public static final int MAKE_DIRECTORY=0;
+        public static final int PICK_LOCATION_OK=1;
     }
 
 

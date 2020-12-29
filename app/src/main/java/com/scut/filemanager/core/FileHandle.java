@@ -526,7 +526,7 @@ public class FileHandle {
     应该总是注意检查该函数的返回结果来确认改名是否成功。
     @Return: 如果返回false 则说明存在同名文件，或者文件受保护。
      */
-    synchronized boolean rename(String newName){
+    synchronized public boolean rename(String newName){
         String NewFileName=getParentName();
         NewFileName=NewFileName.concat("/"+newName);
         File renamed_file=new File(NewFileName);

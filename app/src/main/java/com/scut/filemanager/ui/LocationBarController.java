@@ -71,6 +71,9 @@ public class LocationBarController extends BaseController implements View.OnClic
         };
     }
 
+    public FileHandle getCurrentLocationFileHandle(){
+        return folder;
+    }
 
     public void setFolderAndUpdateView(FileHandle folder){
         this.folder=folder;
