@@ -46,6 +46,7 @@ public class CopyTransactionProxy extends CopyTaskMonitor
     }
 
     public void execute(){
+
         if(selectedFiles.length==1){
             //invoke dialog
             ProgressDialogDelegate delegate=new ProgressDialogDelegate(parentController.getFileManagerCoreService().getContext(),
@@ -120,6 +121,11 @@ public class CopyTransactionProxy extends CopyTaskMonitor
     }
 
     @Override
+    public void onDialogOk() {
+
+    }
+
+    @Override
     public void onStart() { //这里是主线程的时间
         //notify
         super.onStart();
@@ -141,7 +147,7 @@ public class CopyTransactionProxy extends CopyTaskMonitor
             if (progress_status == PROGRESS_STATUS.GOING) {
                 if (cancelSignal) {
                     progress_status = PROGRESS_STATUS.ABORTED;
-
+                    this.parentController.makeToast("copy task cancelled");
                 } else {
                     progress_status = PROGRESS_STATUS.COMPLETED;
                     //refresh UI

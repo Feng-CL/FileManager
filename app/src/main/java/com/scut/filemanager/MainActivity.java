@@ -147,7 +147,10 @@ public class MainActivity extends AppCompatActivity
                 break;
             case R.id.main_menu_item_mkdir:
                 if(controller.getTabViewController()!=null){
-
+                    FileHandle location=controller.getTabViewController().getCurrentLocationFileHandle();
+                    SingleLineInputDialogDelegate delegate=new SingleLineInputDialogDelegate(SingleLineInputDialogDelegate.DialogType.NEW_DIRECTORY,
+                            controller.getTabViewController(),controller.getTabViewController());
+                    delegate.showDialog();
                 }
                 consume=false;
             default:
@@ -161,7 +164,10 @@ public class MainActivity extends AppCompatActivity
 
     private void invokeLanSenderActivity(){
         Intent intent=new Intent(this,LanSenderActivity.class);
+        selectedFile=controller.getTabViewController().getSelectedFileHandle();
         FMGlobal.netService=controller.netService;
         this.startActivity(intent);
     }
+
+    public static FileHandle selectedFile;
 }

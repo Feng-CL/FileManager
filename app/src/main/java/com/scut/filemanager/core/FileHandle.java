@@ -699,6 +699,9 @@ public class FileHandle {
     }
 
     public boolean isDenotedToSameFile(FileHandle fileHandle){
+        if(fileHandle==null){
+            return false;
+        }
         return this.getAbsolutePathName().contentEquals(fileHandle.getAbsolutePathName());
     }
 
@@ -930,6 +933,7 @@ public class FileHandle {
         private boolean delete_result;
         private boolean hasSetStopBit=false;
         private int subTaskId=0;
+
         public FileDeleteSingleThreadTask(ProgressMonitor<String,Boolean> arg_monitor,FileHandle startNode){
             node=startNode;
             monitor=arg_monitor;
@@ -942,6 +946,7 @@ public class FileHandle {
             monitor.onProgress(node.getAbsolutePathName(),delete_result);
             if(!delete_result){
                 monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                return;
             }
             monitor.onFinished();
 
@@ -1001,6 +1006,12 @@ public class FileHandle {
         private void waitUntilFalse(){
             while(monitor.interruptSignal()){
                 monitor.onStop(ProgressMonitor.PROGRESS_STATUS.PAUSED);
+                try {
+                    this.wait(1000);
+                } catch (InterruptedException e) {
+                    return;
+                }
+
             }
             monitor.onStop(ProgressMonitor.PROGRESS_STATUS.GOING);
         }

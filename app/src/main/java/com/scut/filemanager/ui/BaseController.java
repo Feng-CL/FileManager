@@ -6,6 +6,7 @@ import android.view.ViewGroup;
 
 import com.scut.filemanager.FMGlobal;
 import com.scut.filemanager.core.Service;
+import com.scut.filemanager.ui.transaction.Request;
 import com.scut.filemanager.ui.transaction.TransactionProxy;
 
 public abstract class BaseController {
@@ -28,7 +29,9 @@ public abstract class BaseController {
     protected void setUpProxy(){} //empty stub
     public  void makeToast(String text){
         if(mHandler!=null){
-            mHandler.sendEmptyMessage(FMGlobal.MAKE_TOAST);
+            mHandler.sendMessage(
+                    Request.obtain(FMGlobal.MAKE_TOAST,text)
+            );
         }
     }
 

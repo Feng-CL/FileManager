@@ -21,6 +21,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -409,6 +410,23 @@ public class Service {
         svc_executor.execute(moveTask);
     }
 
+    public void move(List<FileHandle> selections,String dstPath,Service_CopyOption option,ProgressMonitor<String,Float> monitor){
+        monitor.onStart();
+        FileHandle dstFolder=new FileHandle(dstPath);
+        if(!dstFolder.isDirectory()||!dstFolder.isExist()){
+            monitor.receiveMessage(1,"destination isn't a folder");
+            monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+            return;
+        }
+        else if(selections.size()>0&& !selections.get(0).isExist()){
+            monitor.receiveMessage(0,"source file cannot be found");
+            monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+            return;
+        }
+
+        MoveTask moveTask=new MoveTask(selections,dstPath,option,monitor);
+        svc_executor.execute(moveTask);
+    }
 
 
     /*
@@ -921,6 +939,8 @@ public class Service {
     private class MoveTask implements Runnable {
         private ProgressMonitor<String,Float> monitor;
         private FileHandle src;
+        private List<FileHandle> listOfFiles=null;
+        private boolean isMultiple=false;
         private String dstPath;
         private boolean allowRollBack=true;
         private boolean needToRollBack=false;
@@ -935,127 +955,183 @@ public class Service {
             }
         }
 
+        public MoveTask(List<FileHandle> list,String dstPath,Service_CopyOption option, ProgressMonitor<String,Float> monitor){
+            this.listOfFiles=list;
+            this.dstPath=dstPath;
+            this.monitor=monitor;
+            if(option==Service_CopyOption.REPLACE_EXISTING){
+                replace_existing_flag=true;
+            }
+            this.isMultiple=true;
+        }
+
 
         @Override
         public void run() {
-            if(isInSameVolume(src,dstPath)){
-                //rewrite absolute path directly
+            if(isMultiple){
+                //rename directly here
                 if(!monitor.abortSignal()){
-                    dstPath=dstPath+"/"+src.getName();
+                    boolean move_result=true;
+                    int i=0;
+                    for (FileHandle src1 :
+                            listOfFiles) {
+                        i++;
+                        String dstSrcPath=dstPath+"/"+src1.getName();
 
-                    //check existing
-                    FileHandle dstFileHandle= new FileHandle(dstPath);
-                    if(dstFileHandle.isExist()&&replace_existing_flag) {
-                        boolean delete_result=dstFileHandle._deleteRecursively(null);
-                        if(!delete_result) {
-                            monitor.receiveMessage(MessageCode.UNKNOWN_ERROR,"destination exists files and cannot be overwritten");
-                            monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
-                            return;
+                        //check existing
+                        FileHandle dstFileHandle= new FileHandle(dstSrcPath);
+                        if(dstFileHandle.isExist()) {
+                            if (replace_existing_flag) {
+                                boolean delete_result = dstFileHandle._deleteRecursively(null);
+                                if (!delete_result) {
+                                    monitor.receiveMessage(MessageCode.UNKNOWN_ERROR, "destination exists files and cannot be overwritten");
+                                    monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                                    return;
+                                }
+                            } else { //没有设置replacing
+                                monitor.receiveMessage(MessageCode.DEST_EXIST_FILE, "replace_existing option has no been set");
+                                monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                                return;
+                            }
                         }
+                        move_result=move_result& src1.file.renameTo(dstFileHandle.getFile());
+                        monitor.onProgress(src1.getAbsolutePathName(),
+                                (float)i/listOfFiles.size());
                     }
-                    else{
-                        monitor.receiveMessage(MessageCode.DEST_EXIST_FILE,"replace_existing option has no been set");
-                        monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
-                        return;
-                    }
-
-                    boolean move_result=src.file.renameTo(dstFileHandle.getFile());
                     if(move_result) {
                         monitor.onFinished();
                     }
                     else{
-                        monitor.receiveMessage(8,"directory is not empty");
+                        monitor.receiveMessage(MessageCode.UNKNOWN_ERROR,"may be directory is not empty");
                         monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
                     }
                 }
                 else{
-                    monitor.onStop(ProgressMonitor.PROGRESS_STATUS.ABORTED);
+                        monitor.onStop(ProgressMonitor.PROGRESS_STATUS.ABORTED);
                 }
-
             }
             else{
-                //copy first then delete
+                if(isInSameVolume(src,dstPath)){
+                    //rewrite absolute path directly
+                    if(!monitor.abortSignal()){
+                        dstPath=dstPath+"/"+src.getName();
 
-                FileHandle dst=new FileHandle(dstPath);
-
-                class InternalCopyMonitor extends CopyTaskMonitor{
-
-                    private MessageEntry currentTask=new MessageEntry(0,"");
-
-                    @Override
-                    public void onSubTaskStop(int taskId, PROGRESS_STATUS status) {
-                        this.progress_status=status;
+                        //check existing
+                        FileHandle dstFileHandle= new FileHandle(dstPath);
+                        if(dstFileHandle.isExist()) {
+                            if(replace_existing_flag){
+                                boolean delete_result=dstFileHandle._deleteRecursively(null);
+                                if(!delete_result) {
+                                    monitor.receiveMessage(MessageCode.UNKNOWN_ERROR,"destination exists files and cannot be overwritten");
+                                    monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                                    return;
+                                }
+                            }
+                            else{
+                                monitor.receiveMessage(MessageCode.DEST_EXIST_FILE,"replace_existing option has no been set");
+                                monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                                return;
+                            }
+                        }
+                        boolean move_result=src.file.renameTo(dstFileHandle.getFile());
+                        if(move_result) {
+                            monitor.onFinished();
+                        }
+                        else{
+                            monitor.receiveMessage(8,"directory is not empty");
+                            monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+                        }
+                    }
+                    else{
+                        monitor.onStop(ProgressMonitor.PROGRESS_STATUS.ABORTED);
                     }
 
-                    @Override
-                    public void onProgress(String key, Long value) {
-                        if(key.contentEquals("totalSize")){
-                            numberOfBytesNeedToCopy=value;
+                }
+                else{
+                    //copy first then delete
+
+                    FileHandle dst=new FileHandle(dstPath);
+
+                    class InternalCopyMonitor extends CopyTaskMonitor{
+
+                        private MessageEntry currentTask=new MessageEntry(0,"");
+
+                        @Override
+                        public void onSubTaskStop(int taskId, PROGRESS_STATUS status) {
+                            this.progress_status=status;
+                        }
+
+                        @Override
+                        public void onProgress(String key, Long value) {
+                            if(key.contentEquals("totalSize")){
+                                numberOfBytesNeedToCopy=value;
+                            }
+                        }
+
+                        @Override
+                        public void onSubProgress(int taskId, String key, Long value) {
+                            this.getTracker().put(taskId,value);
+                            monitor.onProgress(currentTask.getValue(),computeProgress());
+                        }
+
+                        @Override
+                        public void describeTask(int taskId, String title) {
+                            currentTask.setValue(title);
+                            currentTask.setKey(taskId);
+                        }
+
+                        @Override
+                        public void onFinished() {
+                            if(progress_status==null){
+                                progress_status=PROGRESS_STATUS.COMPLETED;
+                            }
+                        }
+
+                        @Override
+                        public boolean interruptSignal() {
+                            return monitor.interruptSignal();
+                        }
+
+                        @Override
+                        public boolean abortSignal() {
+                            return monitor.abortSignal();
+                        }
+
+                        private float computeProgress(){
+                            return (float)reportValueByTracker()/(float)numberOfBytesNeedToCopy;
                         }
                     }
 
-                    @Override
-                    public void onSubProgress(int taskId, String key, Long value) {
-                        this.getTracker().put(taskId,value);
-                        monitor.onProgress(currentTask.getValue(),computeProgress());
-                    }
+                    InternalCopyMonitor internal_copy_monitor=new InternalCopyMonitor();
 
-                    @Override
-                    public void describeTask(int taskId, String title) {
-                        currentTask.setValue(title);
-                        currentTask.setKey(taskId);
-                    }
+                    CopyTask cpTask=new CopyTask(0,internal_copy_monitor,src,dst,false);
+                    cpTask.run();
 
-                    @Override
-                    public void onFinished() {
-                        if(progress_status==null){
-                            progress_status=PROGRESS_STATUS.COMPLETED;
+
+                    //check internal_copy_monitor's status to ensure result
+                    if(internal_copy_monitor.getProgressStatus()!= ProgressMonitor.PROGRESS_STATUS.COMPLETED){
+                        //something wrong happens, report to upper
+
+                        //消息传递
+                        while(internal_copy_monitor.hasMessage()){
+                            MessageEntry msgEntry=internal_copy_monitor.popMessageEntry();
+                            monitor.receiveMessage(msgEntry.getKey(),msgEntry.getValue());
                         }
+
+                        monitor.onStop(internal_copy_monitor.getProgressStatus());
                     }
 
-                    @Override
-                    public boolean interruptSignal() {
-                        return monitor.interruptSignal();
+                    //delete original files
+                    boolean delete_result=src._deleteRecursively(null);
+                    if(!delete_result){
+                        //delete original file fail, report to monitor
+                        monitor.receiveMessage(8,"unknown error");
+                        monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
                     }
 
-                    @Override
-                    public boolean abortSignal() {
-                        return monitor.abortSignal();
-                    }
-
-                    private float computeProgress(){
-                        return (float)reportValueByTracker()/(float)numberOfBytesNeedToCopy;
-                    }
                 }
-
-                InternalCopyMonitor internal_copy_monitor=new InternalCopyMonitor();
-
-                CopyTask cpTask=new CopyTask(0,internal_copy_monitor,src,dst,false);
-                cpTask.run();
-
-
-                //check internal_copy_monitor's status to ensure result
-                if(internal_copy_monitor.getProgressStatus()!= ProgressMonitor.PROGRESS_STATUS.COMPLETED){
-                    //something wrong happens, report to upper
-
-                    //消息传递
-                    while(internal_copy_monitor.hasMessage()){
-                        MessageEntry msgEntry=internal_copy_monitor.popMessageEntry();
-                        monitor.receiveMessage(msgEntry.getKey(),msgEntry.getValue());
-                    }
-
-                    monitor.onStop(internal_copy_monitor.getProgressStatus());
-                }
-
-                //delete original files
-                boolean delete_result=src._deleteRecursively(null);
-                if(!delete_result){
-                    //delete original file fail, report to monitor
-                    monitor.receiveMessage(8,"unknown error");
-                    monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
-                }
-
             }
+
 
         }
 

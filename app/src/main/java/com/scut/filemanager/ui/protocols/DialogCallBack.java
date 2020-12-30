@@ -6,4 +6,5 @@ public interface DialogCallBack {
     void onDialogCancel();
     void onDialogHide();
     void onDialogNeutralClicked();
+    void onDialogOk();
 }

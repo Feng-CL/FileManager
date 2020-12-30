@@ -89,6 +89,9 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
                 case MessageCode.NOTIFY_LOADED:
                     notifyDataSetChanged();
                     parentTabViewController.updateProgressBarVisibility(View.INVISIBLE);
+                case MessageCode.NOTIFY_DATASET_CHANGE:
+                    notifyDataSetChanged();
+                    break;
                 default:
                     super.handleMessage(msg);
                     break;
@@ -129,7 +132,7 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
 
     public void setCheckBoxVisibility(int visibility){
         checkBoxVisibility=visibility;
-        notifyDataSetChanged();
+        mHandler.sendEmptyMessage(MessageCode.NOTIFY_DATASET_CHANGE);
     }
 
     public void setAllItemDataCheckedState(boolean state){
@@ -249,21 +252,22 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
         else{
             //FileHandle item=(FileHandle)getItem(i);
             ItemData itemData=(ItemData)getItem(i);
-            synchronized (itemData) {
-                if (convertView == null) { //reuse view
-                    convertView = inflater.inflate(item_layout_id, parent, false);
-                }
+            if(itemData!=null) {
+                synchronized (itemData) {
+                    if (convertView == null) { //reuse view
+                        convertView = inflater.inflate(item_layout_id, parent, false);
+                    }
 
-                ImageView imgView = convertView.findViewById(R.id.imgview_item_icon);
-                TextView textView = convertView.findViewById(R.id.textview_item_name);
-                TextView textView_detail = convertView.findViewById(R.id.textview_item_detail);
+                    ImageView imgView = convertView.findViewById(R.id.imgview_item_icon);
+                    TextView textView = convertView.findViewById(R.id.textview_item_name);
+                    TextView textView_detail = convertView.findViewById(R.id.textview_item_detail);
 
-                imgView.setImageResource(itemData.resId);//strange
-                textView.setText(itemData.itemName);
-                textView_detail.setText(itemData.itemDetailInfo);
+                    imgView.setImageResource(itemData.resId);//strange
+                    textView.setText(itemData.itemName);
+                    textView_detail.setText(itemData.itemDetailInfo);
 
 
-                //装载图标
+                    //装载图标
 //            ImageView imgView=convertView.findViewById(R.id.imgview_item_icon);
 //            int  itemCount_underfolder=0; StringBuilder detailString=new StringBuilder();
 //            if(item.isDirectory()){
@@ -292,12 +296,13 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
 //            item_textView.setText(item.getName());  item_detail_textView.setText(detailString.toString());
 //
 //            //调整checkBox 状态
-                CheckBox checkBox = convertView.findViewById(R.id.item_checkbox);
-                //根据保存的状态调整checkbox可见性
-                checkBox.setVisibility(checkBoxVisibility);
-                //根据数据集调整checkbox的选中状态
-                checkBox.setChecked(itemData.isChecked);
-                checkBox.setClickable(false);
+                    CheckBox checkBox = convertView.findViewById(R.id.item_checkbox);
+                    //根据保存的状态调整checkbox可见性
+                    checkBox.setVisibility(checkBoxVisibility);
+                    //根据数据集调整checkbox的选中状态
+                    checkBox.setChecked(itemData.isChecked);
+                    checkBox.setClickable(false);
+                }
             }
             //checkBox.setChecked(selectedTable.get(i));
         }

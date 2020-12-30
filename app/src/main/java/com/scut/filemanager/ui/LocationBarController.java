@@ -1,6 +1,5 @@
 package com.scut.filemanager.ui;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
@@ -8,14 +7,11 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 import android.util.TypedValue;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.Button;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -59,11 +55,49 @@ public class LocationBarController extends BaseController implements View.OnClic
             @Override
             public void handleMessage(@NonNull Message msg) {
                 switch(msg.what){
-                    case MessageCode.SCROLL_TO_END:
+                    case UIMessageCode.SCROLL_TO_END:
                         //scroll this location bar to the end, when view is not ready this method will fail
                         //scrollView.scrollTo(layout_container.getWidth()+300,scrollView.getScrollY());
                         scrollView.smoothScrollTo(layout_container.getWidth()+300,scrollView.getScrollY());
                         break;
+                    case UIMessageCode.RELOAD_UI_CONTENT: {
+                        //rebuild location bar
+                        layout_container.removeViews(2,layout_container.getChildCount()-2); //这一步可以优化
+                        int btnCount=canonical_path_tokens.length;
+
+                        for (int i = 1; i < btnCount; i++) {
+                            Button btn = new Button(layout_container.getContext());
+
+                            btn.setLayoutParams(rootBtn.getLayoutParams());
+                            btn.setTextColor(rootBtn.getTextColors());
+                            btn.setText(canonical_path_tokens[i]);
+                            btn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+                            Log.d("LocationBar", "setFolderAndUpdateView: compareTextSize" + btn.getTextSize() + " : " + rootBtn.getTextSize());
+                            btn.setBackground(rootBtn.getBackground());
+                            btn.setAllCaps(false);
+                            btn.setTag(i);
+                            btn.setMinimumWidth(5); //View
+                            btn.setMinWidth(5); //TextView
+                            btn.setOnClickListener(LocationBarController.this);
+                            layout_container.addView(btn);
+
+                            if(i!=btnCount-1) {
+                                TextView separator_textView = new TextView(layout_container.getContext());
+                                separator_textView.setLayoutParams(separatorTextView.getLayoutParams());
+                                separator_textView.setText(separatorTextView.getText());
+                                separator_textView.setTextAlignment(separatorTextView.getTextAlignment());
+                                separator_textView.setTextColor(separatorTextView.getTextColors());
+                                layout_container.addView(separator_textView);
+                            }
+                            else{
+                                btn.setTextColor(layout_container.getResources().getColor(R.color.pureBlack));
+                            }
+                        }
+                        mHandler.sendEmptyMessage(UIMessageCode.SCROLL_TO_END);
+
+                    }
+                        break;
+
                     default:
                         super.handleMessage(msg);
                 }
@@ -75,51 +109,22 @@ public class LocationBarController extends BaseController implements View.OnClic
         return folder;
     }
 
-    public void setFolderAndUpdateView(FileHandle folder){
-        this.folder=folder;
-        if(this.folder!=null){
-            spiltTokens();
-            //rebuild location bar
-            layout_container.removeViews(2,layout_container.getChildCount()-2); //这一步可以优化
-            int btnCount=canonical_path_tokens.length;
-
-            for (int i = 1; i < btnCount; i++) {
-                Button btn = new Button(layout_container.getContext());
-
-                btn.setLayoutParams(rootBtn.getLayoutParams());
-                btn.setTextColor(rootBtn.getTextColors());
-                btn.setText(canonical_path_tokens[i]);
-                btn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-                Log.d("LocationBar", "setFolderAndUpdateView: compareTextSize" + btn.getTextSize() + " : " + rootBtn.getTextSize());
-                btn.setBackground(rootBtn.getBackground());
-                btn.setAllCaps(false);
-                btn.setTag(i);
-                btn.setMinimumWidth(5); //View
-                btn.setMinWidth(5); //TextView
-                btn.setOnClickListener(this);
-                layout_container.addView(btn);
-
-                if(i!=btnCount-1) {
-                    TextView separator_textView = new TextView(layout_container.getContext());
-                    separator_textView.setLayoutParams(separatorTextView.getLayoutParams());
-                    separator_textView.setText(separatorTextView.getText());
-                    separator_textView.setTextAlignment(separatorTextView.getTextAlignment());
-                    separator_textView.setTextColor(separatorTextView.getTextColors());
-                    layout_container.addView(separator_textView);
-                }
-                else{
-                    btn.setTextColor(layout_container.getResources().getColor(R.color.pureBlack));
-                }
-
-                mHandler.sendEmptyMessage(MessageCode.SCROLL_TO_END);
-
-
+    public void setFolderAndUpdateView(FileHandle folder) {
+        if(folder!=null) {
+            if (folder.isDenotedToSameFile(this.folder)) {
+                return;
             }
-
+            this.folder = folder;
+            if (this.folder != null) {
+                spiltTokens();
+                mHandler.sendEmptyMessage(UIMessageCode.RELOAD_UI_CONTENT);
+            }
         }
 
-
     }
+
+
+
 
 
     private void spiltTokens(){
@@ -181,7 +186,8 @@ public class LocationBarController extends BaseController implements View.OnClic
         return parent_controller.getFileManagerCoreService();
     }
 
-    static public class MessageCode{
-        static public final int SCROLL_TO_END=0;
+    static public class UIMessageCode {
+        static public final int  SCROLL_TO_END=1;
+        static public final int  RELOAD_UI_CONTENT=0;
     }
 }

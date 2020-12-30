@@ -28,5 +28,8 @@
     <string name="DialogProgress_sending">Sending Files</string>
     <string name="DialogProgress_delete">Deleting Files</string>
 
+    <string name="dialogTitle_delete">Delete</string>
+    <string name="delete_confirm">Are you sure to delete?</string>
+    <string name="dialogtitle_detail">Detail</string>
 
 </resources>

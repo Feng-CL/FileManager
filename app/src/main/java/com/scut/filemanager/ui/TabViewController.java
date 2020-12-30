@@ -23,17 +23,23 @@ import com.scut.filemanager.FMGlobal;
 import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.Service;
+import com.scut.filemanager.core.concurrent.SharedThreadPool;
+import com.scut.filemanager.core.internal.DeleteTaskMonitor;
 import com.scut.filemanager.ui.adapter.SimpleListViewItemAssembler;
 import com.scut.filemanager.ui.dialog.LocationPickDialogDelegate;
+import com.scut.filemanager.ui.dialog.NotifyDialog;
 import com.scut.filemanager.ui.dialog.SingleLineInputDialogDelegate;
+import com.scut.filemanager.ui.protocols.DialogCallBack;
 import com.scut.filemanager.ui.protocols.InputConfirmCallBack;
 import com.scut.filemanager.ui.protocols.LocationPickerCallback;
 import com.scut.filemanager.ui.protocols.SingleLineInputDialogCallBack;
 import com.scut.filemanager.ui.transaction.CopyTransactionProxy;
+import com.scut.filemanager.ui.transaction.MoveTransactionProxy;
 import com.scut.filemanager.util.protocols.DisplayFolderChangeResponder;
 import com.scut.filemanager.util.protocols.KeyDownEventHandler;
 
 import java.io.IOException;
+import java.util.List;
 
 
 public class TabViewController extends BaseController implements AdapterView.OnItemClickListener, KeyDownEventHandler
@@ -73,12 +79,12 @@ public class TabViewController extends BaseController implements AdapterView.OnI
 
 
 
-
     //定义当前视图下的操作状态
     enum OPERATION_STATE{
         STATIC,
         SCROLLING, SELECTING, //选择状态
         COPY, CUT, RENAME,NEW_FILE,MAKE_DIRECTORY,DELETE,
+        MORE,
         OTHER //更多状态未定义
         ;
     }
@@ -276,6 +282,10 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         return onReturnKeyDown(parentView);
     }
 
+    public FileHandle getSelectedFileHandle(){
+        return adapter.getSelectedFile();
+    }
+
 
     /*
         @Description:
@@ -347,11 +357,11 @@ public class TabViewController extends BaseController implements AdapterView.OnI
             clearOperationState();
         }
         else if(operation_state==OPERATION_STATE.CUT){
-
+            MoveTransactionProxy proxy=new MoveTransactionProxy(adapter.getSelectedFileHandles(),location.getAbsolutePathName(),this);
+            proxy.execute();
+            clearOperationState();
         }
-        else if(operation_state==OPERATION_STATE.DELETE){
 
-        }
     }
 
     @Override
@@ -463,7 +473,8 @@ public class TabViewController extends BaseController implements AdapterView.OnI
                         setDisplayFolder(current);
                         break;
                     case FMGlobal.MAKE_TOAST:
-                        Toast.makeText(getContext(), (String) msg.obj,Toast.LENGTH_SHORT)
+                        String toast_text= (String) msg.obj;
+                        Toast.makeText(getContext(),toast_text ,Toast.LENGTH_SHORT)
                                 .show();
                         break;
                     default:
@@ -473,6 +484,83 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         };
 
     }
+
+    public OPERATION_STATE getOperationState(){
+        return operation_state;
+    }
+
+
+
+    //delete and detail
+    protected class NotifyDialogCallBack
+            implements DialogCallBack{
+
+        @Override
+        public void onDialogClose(boolean updateView) {
+            if(updateView){
+                clearOperationState();
+                setDisplayFolder(current);
+            }
+        }
+
+        @Override
+        public void onDialogCancel() {
+
+        }
+
+        @Override
+        public void onDialogHide() {
+
+        }
+
+        @Override
+        public void onDialogNeutralClicked() {
+
+        }
+
+        @Override
+        public void onDialogOk() {
+            if(operation_state==OPERATION_STATE.DELETE){
+                List<FileHandle> selectedFiles=adapter.getSelectedFileHandles();
+                QueueTask queueTask=new QueueTask(selectedFiles);
+                SharedThreadPool.getInstance().executeTask(queueTask, SharedThreadPool.PRIORITY.LOW);
+            }
+            else {
+                operation_state=OPERATION_STATE.SELECTING;
+
+            }
+        }
+
+        private class QueueTask implements Runnable{
+
+            List<FileHandle> list;
+
+            QueueTask(List<FileHandle> selectedFiles){
+                this.list=selectedFiles;
+            }
+
+            @Override
+            public void run() {
+                boolean delete_result=true;
+                for (FileHandle fileHandle :
+                        list) {
+                    delete_result&=fileHandle._deleteRecursively(null);
+                }
+                makeToast(delete_result);
+                onDialogClose(true);
+            }
+        }
+
+        protected void makeToast(boolean result){
+            if(result){
+                TabViewController.this.makeToast("delete successfully");
+            }
+            else {
+                TabViewController.this.makeToast("delete failed");
+            }
+        }
+    }
+
 
 
 
@@ -524,10 +612,23 @@ public class TabViewController extends BaseController implements AdapterView.OnI
                     break;
                 case 5:{
                     operation_state=OPERATION_STATE.DELETE;
+                    NotifyDialog notifyDialog=new NotifyDialog(NotifyDialog.dialogType.ACTION_DELETE,getContext(),new NotifyDialogCallBack());
+                    notifyDialog.showDialog();
                 }
                     break;
                 case 6:{
-
+                    operation_state=OPERATION_STATE.MORE;
+                    NotifyDialogCallBack callBack= new NotifyDialogCallBack();
+                    if(selectedCount>1){
+                        NotifyDialog notifyDialog=new NotifyDialog(NotifyDialog.dialogType.ACTION_DETAIL_MULTI,getContext(),callBack);
+                        notifyDialog.setDataSource(adapter.getSelectedFileHandles());
+                        notifyDialog.showDialog();
+                    }
+                    else if(selectedCount==1) {
+                        NotifyDialog notifyDialog = new NotifyDialog(NotifyDialog.dialogType.ACTION_DETAIL,getContext(),callBack);
+                        notifyDialog.setDataSource(adapter.getSelectedFile());
+                        notifyDialog.showDialog();
+                    }
                 }
                     break;
                 case 7:{
@@ -558,10 +659,7 @@ public class TabViewController extends BaseController implements AdapterView.OnI
     }
 
 
-    public static class ProxyMessageCode{
-        public static final int MAKE_DIRECTORY=0;
-        public static final int PICK_LOCATION_OK=1;
-    }
+
 
 
 
