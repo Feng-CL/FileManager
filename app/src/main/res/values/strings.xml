@@ -12,6 +12,9 @@
     <string name="dialogTitle_newFolder">Make Directory</string>
     <string name="editText_placeholder">Input text here...</string>
     <string name="editText_illegal_input_hint">Cannot contain illegal character</string>
+    <string name="dialogTitle_delete">Delete</string>
+    <string name="delete_confirm">Are you sure to delete?</string>
+    <string name="dialogtitle_detail">Detail</string>
 
     <string name="ToastHint_mkdir_true">Make Directory Successfully</string>
     <string name="ToastHint_mkdir_false">Make Directory Failed</string>
@@ -22,4 +25,5 @@
     <string name="dialogTitle_rename">Rename</string>
     <string name="ToastHint_invalid_location_tip">Invalid location</string>
     <string name="ToastHint_unknown_error">unknown error</string>
+
 </resources>
