@@ -20,6 +20,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 
 import com.scut.filemanager.FMGlobal;
+import com.scut.filemanager.MainActivity;
 import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.Service;
@@ -34,6 +35,7 @@ import com.scut.filemanager.ui.protocols.InputConfirmCallBack;
 import com.scut.filemanager.ui.protocols.LocationPickerCallback;
 import com.scut.filemanager.ui.protocols.SingleLineInputDialogCallBack;
 import com.scut.filemanager.ui.transaction.CopyTransactionProxy;
+import com.scut.filemanager.ui.transaction.MIME_MapTable;
 import com.scut.filemanager.ui.transaction.MoveTransactionProxy;
 import com.scut.filemanager.util.protocols.DisplayFolderChangeResponder;
 import com.scut.filemanager.util.protocols.KeyDownEventHandler;
@@ -167,6 +169,7 @@ public class TabViewController extends BaseController implements AdapterView.OnI
             }
             else{
                 //invoke file viewers
+                MainActivity.openFile(getContext(),handle.getAbsolutePathName());
             }
         }
         else if( operation_state==OPERATION_STATE.SELECTING){
@@ -186,6 +189,8 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         }
         operationBarController.onOperationStatusChange(operation_state,selectedCount);
     }
+
+
 
 
     @Override
@@ -312,12 +317,12 @@ public class TabViewController extends BaseController implements AdapterView.OnI
             break;
             case SingleLineInputDialogDelegate.DialogType.NEW_FILE: {
                 if (current.isInAndroidVolume()) {
-                    FileHandle newFile = new FileHandle(current, text);
+                    FileHandle newFile = new FileHandle(current,"/"+text);
                     result = newFile.create();
                     if (!result) {
                         Toast.makeText(getContext(), R.string.ToastHint_makeFile_false, Toast.LENGTH_SHORT).show();
                     } else {
-
+                        Toast.makeText(getContext(), R.string.ToastHint_makeFile_true, Toast.LENGTH_SHORT).show();
                     }
                 } else {
                     Toast.makeText(getContext(), R.string.ToastHint_invalid_location_tip, Toast.LENGTH_SHORT).show();

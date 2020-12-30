@@ -4,11 +4,14 @@ import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.content.FileProvider;
 
 
 import android.Manifest;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -30,6 +33,7 @@ import com.scut.filemanager.*;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.concurrent.SharedThreadPool;
 import com.scut.filemanager.ui.dialog.SingleLineInputDialogDelegate;
+import com.scut.filemanager.ui.transaction.MIME_MapTable;
 
 public class MainActivity extends AppCompatActivity
 
@@ -153,6 +157,16 @@ public class MainActivity extends AppCompatActivity
                     delegate.showDialog();
                 }
                 consume=false;
+                break;
+            case R.id.main_menu_item_new:
+                if(controller.getTabViewController()!=null){
+                    FileHandle location=controller.getTabViewController().getCurrentLocationFileHandle();
+                    SingleLineInputDialogDelegate delegate=new SingleLineInputDialogDelegate(SingleLineInputDialogDelegate.DialogType.NEW_FILE,
+                            controller.getTabViewController(),controller.getTabViewController());
+                    delegate.showDialog();
+                }
+                consume=false;
+                break;
             default:
                 consume=super.onOptionsItemSelected(item);
                 break;
@@ -167,6 +181,22 @@ public class MainActivity extends AppCompatActivity
         selectedFile=controller.getTabViewController().getSelectedFileHandle();
         FMGlobal.netService=controller.netService;
         this.startActivity(intent);
+    }
+
+    public static void openFile(Context context, String file) {
+        try {
+            Intent intent = new Intent();
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.setAction(Intent.ACTION_VIEW);
+
+            Uri fileUri=FileProvider.getUriForFile(context,"com.scut.filemanager",new File(file));
+            intent.setDataAndType(fileUri, MIME_MapTable.getMIMEType(file));
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            context.startActivity(intent);
+            Intent.createChooser(intent, "you want to open it with?");
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(context, "sorry cannot find correspond handler ", Toast.LENGTH_SHORT).show();
+        }
     }
 
     public static FileHandle selectedFile;

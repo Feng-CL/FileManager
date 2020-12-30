@@ -505,8 +505,7 @@ public class FileHandle {
      */
     public boolean create(){
         try {
-            file.createNewFile();
-            return true;
+            return file.createNewFile();
         }
         catch(IOException ex){
             Log.e("FileHandle: create",ex.getMessage());
