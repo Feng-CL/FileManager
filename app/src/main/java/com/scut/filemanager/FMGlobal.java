@@ -28,4 +28,6 @@ public class FMGlobal {
             }
         }
     };
+
+    static public final int MAKE_TOAST=-2; //special message code
 }

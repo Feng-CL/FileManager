@@ -278,16 +278,22 @@ public class FileHandle {
         return CanonicalPathName;
     }
 
-    /*
-    @Description: 从表示该文件句柄的抽象路径名出发，获取其父文件的抽象路径名的正则路径名
-    由于获取的是正则路径名，有可能在转换相对路径的过程中会产生IO错误，不过这种错误主要是
-    对于符号链接所表示的抽象路径名而言的。
-    @Return: 父目录的正则路径名，如/home/dir/fix, 则返回/home/dir
-    @Notice: 如果该文件不存在父目录，则返回值为空，建议不要直接使用该函数作为判断目录是否已经达到
-    根节点的依据，因为大部分返回空的情况都是已经返回到安卓根节点的情况，但是我们的操作空间并不在于
-    根目录"/" 下 ，而是/storage/emulated/0 和sd卡目录，详情查看isAndroidRoot()
+
+    public String getParentPathNameByAbsolutePathName(){
+        int last=AbsolutePathName.lastIndexOf('/');
+        return AbsolutePathName.substring(0,last);
+    }
+
+        /*
+            @Description: 从表示该文件句柄的抽象路径名出发，获取其父文件的抽象路径名的正则路径名
+            由于获取的是正则路径名，有可能在转换相对路径的过程中会产生IO错误，不过这种错误主要是
+            对于符号链接所表示的抽象路径名而言的。
+            @Return: 父目录的正则路径名，如/home/dir/fix, 则返回/home/dir
+            @Notice: 如果该文件不存在父目录，则返回值为空，建议不要直接使用该函数作为判断目录是否已经达到
+            根节点的依据，因为大部分返回空的情况都是已经返回到安卓根节点的情况，但是我们的操作空间并不在于
+            根目录"/" 下 ，而是/storage/emulated/0 和sd卡目录，详情查看isAndroidRoot()
      */
-    public String getParentName(){
+    public String getParentNameByParentFile(){
         File parent=file.getParentFile();
         if(parent==null){
             return null;
@@ -332,6 +338,11 @@ public class FileHandle {
 
     public boolean isAndroidRoot(){
         return isStorageRoot()||isSdCardRoot();
+    }
+
+    public boolean isSameParentAs(FileHandle fileHandle){
+        return this.getParentPathNameByAbsolutePathName().
+                contentEquals(fileHandle.getParentPathNameByAbsolutePathName());
     }
 
     public boolean isStorageRoot(){
@@ -527,7 +538,7 @@ public class FileHandle {
     @Return: 如果返回false 则说明存在同名文件，或者文件受保护。
      */
     synchronized public boolean rename(String newName){
-        String NewFileName=getParentName();
+        String NewFileName= getParentPathNameByAbsolutePathName();
         NewFileName=NewFileName.concat("/"+newName);
         File renamed_file=new File(NewFileName);
         if(renamed_file.exists()){
@@ -598,7 +609,7 @@ public class FileHandle {
     其删除线程当前的状态，并向monitor发送错误信息。
      */
     synchronized public void deleteRecursively(ProgressMonitor<String,Boolean> monitor){
-        if(!FileHandle.containsIllegalChar(getAbsolutePathName())) {
+        if(!FileHandle.containsIllegalChar(getAbsolutePathName())&&this.isExist()) {
             FileDeleteSingleThreadTask task = new FileDeleteSingleThreadTask(monitor, this);
             sharedThreadPool.executeTask(task,SharedThreadPool.PRIORITY.MEDIUM);
         }
@@ -981,7 +992,7 @@ public class FileHandle {
                 return folder_delete_result;
             }
             else if(!hasSetStopBit){
-                monitor.onStop(ProgressMonitor.PROGRESS_STATUS.ABORTED);
+                monitor.onStop(ProgressMonitor.PROGRESS_STATUS.ABORTED); //确保这个onStop只执行一次
                 return false;
             }
             return false;

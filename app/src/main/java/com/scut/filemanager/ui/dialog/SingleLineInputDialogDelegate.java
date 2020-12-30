@@ -15,6 +15,7 @@ import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.Service;
 import com.scut.filemanager.ui.BaseController;
 import com.scut.filemanager.ui.protocols.InputConfirmCallBack;
+import com.scut.filemanager.ui.protocols.SingleLineInputDialogCallBack;
 
 /*
     @Description:一个可复用的单行输入代理控制器，在创建时，只需要为其指定类型，
@@ -95,6 +96,9 @@ public class SingleLineInputDialogDelegate extends BaseController{
                     }
                     break;
                     case DialogInterface.BUTTON_NEGATIVE:{ //取消按钮
+                        if(callBack instanceof SingleLineInputDialogCallBack){
+                            ((SingleLineInputDialogCallBack) callBack).onInputDialogCancelClick(editText.getText().toString());
+                        }
                         dialogInterface.cancel();
                     }
                     default:

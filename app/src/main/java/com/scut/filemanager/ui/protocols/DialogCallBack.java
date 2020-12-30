@@ -5,4 +5,5 @@ public interface DialogCallBack {
     void onDialogClose(boolean updateView);
     void onDialogCancel();
     void onDialogHide();
+    void onDialogNeutralClicked();
 }

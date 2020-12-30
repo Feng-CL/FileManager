@@ -22,4 +22,11 @@
     <string name="dialogTitle_rename">Rename</string>
     <string name="ToastHint_invalid_location_tip">Invalid location</string>
     <string name="ToastHint_unknown_error">unknown error</string>
+
+    <string name="DialogProgress_copy">Copying Files</string>
+    <string name="DialogProgress_move">Moving Files</string>
+    <string name="DialogProgress_sending">Sending Files</string>
+    <string name="DialogProgress_delete">Deleting Files</string>
+
+
 </resources>

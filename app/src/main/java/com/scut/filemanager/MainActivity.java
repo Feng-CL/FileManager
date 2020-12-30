@@ -157,6 +157,8 @@ public class MainActivity extends AppCompatActivity
         return consume;
     }
 
+
+
     private void invokeLanSenderActivity(){
         Intent intent=new Intent(this,LanSenderActivity.class);
         FMGlobal.netService=controller.netService;

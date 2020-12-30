@@ -19,6 +19,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
+import com.scut.filemanager.FMGlobal;
 import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.Service;
@@ -27,6 +28,8 @@ import com.scut.filemanager.ui.dialog.LocationPickDialogDelegate;
 import com.scut.filemanager.ui.dialog.SingleLineInputDialogDelegate;
 import com.scut.filemanager.ui.protocols.InputConfirmCallBack;
 import com.scut.filemanager.ui.protocols.LocationPickerCallback;
+import com.scut.filemanager.ui.protocols.SingleLineInputDialogCallBack;
+import com.scut.filemanager.ui.transaction.CopyTransactionProxy;
 import com.scut.filemanager.util.protocols.DisplayFolderChangeResponder;
 import com.scut.filemanager.util.protocols.KeyDownEventHandler;
 
@@ -35,7 +38,7 @@ import java.io.IOException;
 
 public class TabViewController extends BaseController implements AdapterView.OnItemClickListener, KeyDownEventHandler
     , AdapterView.OnItemLongClickListener, AbsListView.OnScrollListener
-    , InputConfirmCallBack, LocationPickerCallback
+    , SingleLineInputDialogCallBack, LocationPickerCallback
 {
 
     /*
@@ -211,6 +214,11 @@ public class TabViewController extends BaseController implements AdapterView.OnI
 
     }
 
+    @Override
+    public void onInputDialogCancelClick(String text) {
+        operation_state=OPERATION_STATE.SELECTING;
+    }
+
     public boolean onReturnKeyDown(AdapterView<?> parentView) throws IOException {
        if(operation_state==OPERATION_STATE.STATIC) {
 
@@ -333,7 +341,17 @@ public class TabViewController extends BaseController implements AdapterView.OnI
 
     @Override
     public void onLocationPicked(FileHandle location) {
+        if(operation_state==OPERATION_STATE.COPY){
+            CopyTransactionProxy proxy=new CopyTransactionProxy(adapter.getSelectedFileHandles(),location.getAbsolutePathName(),this);
+            proxy.execute();
+            clearOperationState();
+        }
+        else if(operation_state==OPERATION_STATE.CUT){
 
+        }
+        else if(operation_state==OPERATION_STATE.DELETE){
+
+        }
     }
 
     @Override
@@ -345,6 +363,7 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         }
 
     }
+
 
 
 
@@ -443,11 +462,16 @@ public class TabViewController extends BaseController implements AdapterView.OnI
                     case UIMessageCode.NOTIFY_UPDATE_DATASET:
                         setDisplayFolder(current);
                         break;
+                    case FMGlobal.MAKE_TOAST:
+                        Toast.makeText(getContext(), (String) msg.obj,Toast.LENGTH_SHORT)
+                                .show();
+                        break;
                     default:
                         break;
                 }
             }
         };
+
     }
 
 
@@ -524,6 +548,7 @@ public class TabViewController extends BaseController implements AdapterView.OnI
             }
         }
     }
+
 
 
 

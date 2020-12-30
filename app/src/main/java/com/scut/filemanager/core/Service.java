@@ -227,7 +227,7 @@ public class Service {
 
     /*
     @Description: 复制文件或文件夹到指定位置，需要提供目标路径和源文件，以及监视器和复制选项
-    @Notices 请确保目标的有效性，dstPath必须是存在的路径，且是一个目录。
+    @Notices 请确保目标的有效性，dstPath必须是存在的路径，且是一个目录,该目录不能够是源文件的目录及其子目录。
     onFinished()在这里仅用于确认线程退出,
     @Parameters:
         src: 源文件句柄，可以是单个文件或者一个文件夹，当然传入的目标如果是不存在则该任务不会被执行。
@@ -277,7 +277,6 @@ public class Service {
 
      */
     public void copy(FileHandle src, String dstPath, ProgressMonitor<String,Long> monitor, boolean allowRollBack,Service_CopyOption... options){
-        int arg_len=options.length;
         boolean replace_existing,copy_attribute,not_following_link,recursive_copy;
         replace_existing=parseOption(Service_CopyOption.REPLACE_EXISTING,options);
         copy_attribute=parseOption(Service_CopyOption.COPY_ATTRIBUTE,options);
@@ -286,11 +285,18 @@ public class Service {
 
         //testCode-------------------------------------------------------
         FileHandle dst=new FileHandle(dstPath);
+        monitor.onStart(); //onStart() 标志任务已被接受，比起在工作线程中执行onStart,可以有效防止工作线程未开始，任务因特殊原因就结束了
         if(!dst.isDirectory()){
             return; //exit point
         }
+        else if(!this.validateCopyDstPath(src,dstPath)){ //验证不通过
+            monitor.receiveMessage(MessageCode.DEST_PATH_CANNOT_CONTAIN_SRC_FOLDER,"destPath cannot contain source folder and it subfolder");
+            monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+            monitor.onFinished();
+            return;
+        }
 
-        monitor.onStart(); //onStart() 标志任务已被接受，比起在工作线程中执行onStart,可以有效防止工作线程未开始，任务因特殊原因就结束了
+
         if(src.isExist()&&dst.isExist()){
             CopyTask copyTask=new CopyTask(0,monitor,src,dst,allowRollBack);
             svc_executor.execute(copyTask);
@@ -308,6 +314,31 @@ public class Service {
 
 
         //---------------------------------------------------------------
+    }
+
+    /*
+        @Description:传入多个FileHandle对象进行复制
+    */
+
+    public void copy(FileHandle[] src,String dstPath,ProgressMonitor<String,Long> monitor,boolean allowRollBack,Service_CopyOption... options){
+        boolean argument_test=true;
+        for (FileHandle srcFile :
+                src) {
+            argument_test  &= this.validateCopyDstPath(srcFile,dstPath);
+        }
+        //暂时不对src的存在性做检测
+
+        monitor.onStart();
+        if(argument_test) {
+            FileHandle dst = new FileHandle(dstPath);
+            CopyTask copyTask=new CopyTask(src,dst,0,monitor,false);
+            svc_executor.execute(copyTask);
+        }
+        else{
+            monitor.receiveMessage(MessageCode.DEST_PATH_CANNOT_CONTAIN_SRC_FOLDER,"destPath cannot contain source folder and it subfolder");
+            monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
+            monitor.onFinished();
+        }
     }
 
     /*
@@ -338,13 +369,13 @@ public class Service {
 
 
 
-    信息码描述：
+    信息码描述：详细参照Service.MessageCode类
         receiveMessage(int code,String msg):
         0=找不到文件
         1=目标路径不可写
         2=目标路径不存在
         3=源文件不可读
-        10=目标已存在该文件，且未设置覆写状态
+        11=目标已存在该文件，且未设置覆写状态
 
         //仅在不同挂载设备间复制时会出现
         4=流关闭错误
@@ -474,6 +505,48 @@ public class Service {
     public long getSdcardFreeCapacity(){
         return storage_sdcard.getFreeSpace();
     }
+
+    /*
+        @Description:        0=找不到文件
+        1=目标路径不可写
+        2=目标路径不存在
+        3=源文件不可读
+        4=流关闭错误
+        5=读写错误
+        6=创建文件夹失败
+        7=空间不足
+        8=未知错误
+        9=InterruptedException（这是java类的错误）
+        10=回滚情况
+    */
+
+    static public final class MessageCode{
+        static public final int FILE_NOT_FOUND=0;
+        static public final int DEST_CANNOT_WRITE=1;
+        static public final int DEST_NOT_FOUND=2;
+        static public final int SOURCE_CANNOT_READ=3;
+        static public final int STREAM_CLOSE_ERROR=4;
+        static public final int READ_WRITE_ERROR=5;
+        static public final int MKDIR_FAILS=6;
+        static public final int NO_ENOUGH_SPACE=7;
+        static public final int UNKNOWN_ERROR=8;
+        static public final int INTERRUPTED_EXCEPTION_WHILE_WAITING=9;
+        static public final int ROLL_BACK_REPORT=10;
+        static public final int DEST_EXIST_FILE=11;
+        static public final int DEST_PATH_CANNOT_CONTAIN_SRC_FOLDER=12;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
     //private zone 比起私有方法，公有方法才是更应该关注的
     //-------------------------------------------------
 
@@ -505,32 +578,59 @@ public class Service {
        return false;
     }
 
+    private boolean validateCopyDstPath(FileHandle src,String dstPath){
+        if(src.isDirectory()){
+            return !dstPath.startsWith(src.getAbsolutePathName());
+        }
+        return true; //src 不是文件夹，安全操作
+    }
     private class CopyTask implements Runnable{
 
         protected  ProgressMonitor<String,Long> task_monitor;
         protected FileHandle src,dst;
+        protected FileHandle[] sources;
         protected boolean needToRollBack=false;
         protected boolean allowRollBackFlag=true;
         protected boolean hasNotAborted=true; //prevent inconsistent
         private boolean copy_result=true;
         private boolean peace_out=false;
+        private boolean isMultipleSrc=false;
         int pid;
 
         //arg_dst 为目标目录
-        public CopyTask(int initial_taskId,ProgressMonitor<String,Long> arg_monitor,FileHandle arg_src,FileHandle arg_dst,boolean allowRollBackFlag){
+        public CopyTask(int initial_taskId,ProgressMonitor<String,Long> arg_monitor,FileHandle arg_src,FileHandle dstFolder,boolean allowRollBackFlag){
             pid=initial_taskId;
             task_monitor=arg_monitor;
-            dst=arg_dst;
+            dst=dstFolder;
             src=arg_src;
             this.allowRollBackFlag=allowRollBackFlag;
         }
+
+        public CopyTask(FileHandle[] src, FileHandle dstFolder, int initial_taskId,ProgressMonitor<String,Long> monitor,boolean allowRollBackFlag){
+            this.isMultipleSrc=true;
+            sources=src;
+            pid=initial_taskId;
+            task_monitor=monitor;
+            dst=dstFolder;
+            this.allowRollBackFlag=allowRollBackFlag;
+
+        }
+
+
 
         @Override
         public void run() {
             //check whether destination has enough space before performing copying
             long srcSize=0L;
             try{
-                srcSize=src._totalSize();
+                if(!isMultipleSrc) {
+                    srcSize = src._totalSize();
+                }
+                else {
+                    for (int i = 0; i < sources.length; i++) {
+                        srcSize+=sources[i]._totalSize();
+                    }
+                }
             }
             catch (IOException ioex){
                 task_monitor.receiveMessage(3,ioex.getMessage());
@@ -538,6 +638,8 @@ public class Service {
 
                 return;
             }
+
+            //检查剩余空间
             long free_space=0L;
             if(dst.isInStorageVolume()){
                 free_space=getStorageFreeCapacity();
@@ -561,8 +663,14 @@ public class Service {
             //working
             //report totalSize first
             task_monitor.onProgress("totalSize",srcSize);
-            copyByStreamRecursively(pid,src,dst,task_monitor);
-
+            if(isMultipleSrc){
+                for (int i = 0; i < sources.length; i++) {
+                    pid=copyByStreamRecursively(pid,sources[i],dst,task_monitor);
+                }
+            }
+            else {
+                copyByStreamRecursively(pid, src, dst, task_monitor);
+            }
 
             if(needToRollBack && allowRollBackFlag ){
                 rollBack();
@@ -596,10 +704,10 @@ public class Service {
                         if (!dst_handle.isExist()) { //optimize this process
                             boolean makeDirResult = dst_handle.makeDirectory();
                             if (!makeDirResult) {
-                                monitor.receiveMessage(6, "creating directory fails");
+                                monitor.receiveMessage(MessageCode.MKDIR_FAILS, "creating directory fails");
                                 monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED); //createDirectory fails
                             }
-                            monitor.onSubTaskFinish(taskId);
+                            //monitor.onSubTaskFinish(taskId);
                             return makeDirResult;
                         } else {
                             monitor.onSubTaskFinish(taskId);
@@ -612,7 +720,7 @@ public class Service {
                         BufferedInputStream bufferInput = new BufferedInputStream(fileInput);
                         BufferedOutputStream bufferOutput = new BufferedOutputStream(fileOutput);
 
-                        //4k buffer
+                        //4M buffer
                         int blockSize = 4 * 1024 * 1024;
                         byte[] buffer = new byte[blockSize];
 
@@ -639,7 +747,7 @@ public class Service {
                                 //record and report to monitor
                                 Log.e("core.Service", "copying file by stream has incurred an IOException" + " Exception message: " +
                                         e.getMessage());
-                                monitor.receiveMessage(5, e.getMessage());
+                                monitor.receiveMessage(MessageCode.READ_WRITE_ERROR, e.getMessage());
                                 monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
 
                                 bufferOutput.close();
@@ -681,11 +789,11 @@ public class Service {
                 } catch (FileNotFoundException ex) {
                     Log.e("core.Service", "File not found or some wrong happen");
                     monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
-                    monitor.receiveMessage(0, "File not found");
+                    monitor.receiveMessage(MessageCode.FILE_NOT_FOUND, "File not found");
                     return false;
                 } catch (IOException e) {
                     //should not happen
-                    monitor.receiveMessage(4, e.getMessage());
+                    monitor.receiveMessage(MessageCode.STREAM_CLOSE_ERROR, e.getMessage());
                     monitor.onSubTaskStop(taskId, ProgressMonitor.PROGRESS_STATUS.FAILED);
                     return false;
                 }
@@ -697,6 +805,14 @@ public class Service {
             }
         }
 
+
+//        private boolean validateSources(){
+//            FileHandle previous=sources[0];
+//            boolean isUnderSameFolder=true;
+//            for (int i = 1; i < sources.length; i++) {
+//                isUnderSameFolder=
+//            }
+//        }
 
         /*
         @Description: 使用系统的服务进行复制，暂时不予以考虑
@@ -735,7 +851,7 @@ public class Service {
 
                 //@notice: without src_folder the following files contained in src_folder cannot be created
                 //error report has been completed in copyByStream(), so there is no need to report again;
-                if (list != null && src_folder_copy_result) {
+                if ((list != null&&list.length>0 )&& src_folder_copy_result) {
 
                     //breath first
                     for (int i = 0; i < list.length; i++) {
@@ -753,16 +869,18 @@ public class Service {
                             return handle.isDirectory();
                         }
                     });
-                    folders = new FileHandle[rawArray.length];
-                    for (int i = 0; i < rawArray.length; i++) {
-                        folders[i] = (FileHandle) rawArray[i];
-                    }
+                    if(rawArray!=null&&rawArray.length>0){//safety check
+                        folders = new FileHandle[rawArray.length];
+                        for (int i = 0; i < rawArray.length; i++) {
+                            folders[i] = (FileHandle) rawArray[i];
+                        }
 
 
-                    //copy continues recursively
-                    for (int i = 0; i < folders.length; i++) {
-                        //dst_handle.pointTo();
-                        taskId = copyByStreamRecursively(taskId, folders[i], dst_handle, monitor);
+                        //copy continues recursively
+                        for (FileHandle folder : folders) {
+                            //dst_handle.pointTo();
+                            taskId = copyByStreamRecursively(taskId, folder, dst_handle, monitor);
+                        }
                     }
                 }
             }
@@ -830,13 +948,13 @@ public class Service {
                     if(dstFileHandle.isExist()&&replace_existing_flag) {
                         boolean delete_result=dstFileHandle._deleteRecursively(null);
                         if(!delete_result) {
-                            monitor.receiveMessage(8,"destination exists files and cannot be overwritten");
+                            monitor.receiveMessage(MessageCode.UNKNOWN_ERROR,"destination exists files and cannot be overwritten");
                             monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
                             return;
                         }
                     }
                     else{
-                        monitor.receiveMessage(10,"replace_existing option has no been set");
+                        monitor.receiveMessage(MessageCode.DEST_EXIST_FILE,"replace_existing option has no been set");
                         monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
                         return;
                     }
@@ -849,12 +967,11 @@ public class Service {
                         monitor.receiveMessage(8,"directory is not empty");
                         monitor.onStop(ProgressMonitor.PROGRESS_STATUS.FAILED);
                     }
-                    return;
                 }
                 else{
                     monitor.onStop(ProgressMonitor.PROGRESS_STATUS.ABORTED);
-                    return;
                 }
+
             }
             else{
                 //copy first then delete
