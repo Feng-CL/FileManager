@@ -62,10 +62,7 @@ public class OnlineBoardCaster implements Runnable {
         return expect==this.statusCode;
     }
 
-    synchronized public DatagramPacket constructPacket(InquirePacket inquirePacket) throws IOException {
-        alivePacket.setData(inquirePacket.getBytes());
-        return alivePacket;
-    }
+
 
     synchronized public DatagramPacket constructDefaultEmptyPacket() throws IOException {
         InquirePacket inquirePacket=new InquirePacket(InquirePacket.MessageCode.IP_NULL);

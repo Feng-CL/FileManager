@@ -16,7 +16,7 @@ import java.util.concurrent.Future;
  */
 public class CopyTaskMonitor extends AbstractTaskMonitor<String,Long> {
 
-    HashMap<Integer,Long> tracker=new HashMap<>();
+    protected HashMap<Integer,Long> tracker=new HashMap<>();
     protected long numberOfBytesNeedToCopy=0L;
 
     public CopyTaskMonitor(){

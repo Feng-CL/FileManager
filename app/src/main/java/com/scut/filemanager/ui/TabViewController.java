@@ -287,8 +287,20 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         return onReturnKeyDown(parentView);
     }
 
+    /**
+     * 从该控制器取得视图中选中的第一个文件
+     * @return
+     */
     public FileHandle getSelectedFileHandle(){
         return adapter.getSelectedFile();
+    }
+
+    /**
+     * 取得选中的文件列表
+     * @return
+     */
+    public List<FileHandle> getSelectedFileHandles(){
+        return adapter.getSelectedFileHandles();
     }
 
 
@@ -593,6 +605,12 @@ public class TabViewController extends BaseController implements AdapterView.OnI
             int button_tag= (int) view.getTag();
             switch (button_tag){
                 case 1:
+                    operation_state=OPERATION_STATE.STATIC;
+                    FileHandle selection=getSelectedFileHandle();
+                    if(selection!=null) {
+                        MainActivity.openFile(getContext(), getSelectedFileHandle().getAbsolutePathName());
+                    }
+                    clearOperationState();
                     break;
                 case 2: {
                     //需要通过operation_state来标记点击操作栏后进入的状态，否则回调函数无法知道结束后要做什么

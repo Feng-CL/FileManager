@@ -2,7 +2,6 @@ package com.scut.filemanager.util;
 
 
 import java.text.DecimalFormat;
-import android.os.Build;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;

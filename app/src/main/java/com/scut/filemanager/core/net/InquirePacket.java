@@ -21,7 +21,7 @@ public class InquirePacket implements Serializable {
     //public int length=0;
 
     public InquirePacket(int what){
-        this.obj=obj;
+        this.what=what;
     }
 
 
@@ -56,10 +56,13 @@ public class InquirePacket implements Serializable {
         
     static public class MessageCode{
         static public final int IP_NULL=0; //该包收到后只需当作节点发现包
-        static public final int IP_FOLDER_TREE=1;
-        static public final int IP_FOLDERS_ARRAY=2;
-        static public final int IP_FILES=3;
+
+
+        static public final int ACK_IP_FILES_AND_FOLDERS=3;
+        static public final int N_ACK_IP_FILES_AND_FOLDER=2;
         static public final int IP_FILES_AND_FOLDERS=4;
     }
+
+
 
 }

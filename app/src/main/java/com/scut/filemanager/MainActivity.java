@@ -1,7 +1,7 @@
 package com.scut.filemanager;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.FileProvider;
@@ -12,26 +12,22 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.Window;
 import android.widget.*;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.net.SocketException;
 import java.util.List;
 
-import com.scut.filemanager.*;
 import com.scut.filemanager.core.FileHandle;
-import com.scut.filemanager.core.concurrent.SharedThreadPool;
 import com.scut.filemanager.ui.dialog.SingleLineInputDialogDelegate;
 import com.scut.filemanager.ui.transaction.MIME_MapTable;
 
@@ -39,7 +35,22 @@ public class MainActivity extends AppCompatActivity
 
 {
     MainController controller=null;
-
+    Handler mHandler=new Handler(Looper.getMainLooper()){
+        @Override
+        public void handleMessage(@NonNull Message msg) {
+            switch (msg.what){
+                case FMGlobal.MAKE_TOAST:
+                    String text="class cast exception";
+                    if(msg.obj instanceof String){
+                        text= (String) msg.obj;
+                    }
+                    Toast.makeText(MainActivity.this,text,Toast.LENGTH_SHORT).show();
+                    break;
+                default:
+                    break;
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,17 +62,24 @@ public class MainActivity extends AppCompatActivity
         setSupportActionBar((Toolbar)findViewById(R.id.my_toolbar));
 
         controller=new MainController();
-        controller.startService(this);
-        try {
-            controller.startNetService();
-        } catch (SocketException e) {
-            e.printStackTrace();
-        }
+        boolean result= controller.startService(this);
+        if(result){
+            try {
+                controller.startNetService();
+            } catch (SocketException e) {
+                e.printStackTrace();
+            }
 
-        try {
-            controller.init();
-        } catch (Exception e) {
-            e.printStackTrace();
+            try {
+                controller.init();
+            } catch (Exception e) {
+                Toast.makeText(this,e.getMessage(),Toast.LENGTH_SHORT)
+                        .show();
+            }
+        }
+        else{
+            Toast.makeText(this,controller.getServiceStatus(),Toast.LENGTH_SHORT )
+                    .show();
         }
     }
 
@@ -140,7 +158,7 @@ public class MainActivity extends AppCompatActivity
         boolean consume;
         switch (item.getItemId()){
             case R.id.main_menu_item_sendbylan:
-                invokeLanSenderActivity();
+                invokeDeviceSelectActivity();
                 consume=false;
                 break;
             case R.id.main_menu_item_select_all:
@@ -176,11 +194,26 @@ public class MainActivity extends AppCompatActivity
 
 
 
-    private void invokeLanSenderActivity(){
-        Intent intent=new Intent(this,LanSenderActivity.class);
-        selectedFile=controller.getTabViewController().getSelectedFileHandle();
+    private void invokeDeviceSelectActivity(){
+        Intent intent=new Intent(this, DeviceSelectActivity.class);
+        selectedFiles=controller.getTabViewController().getSelectedFileHandles();
         FMGlobal.netService=controller.netService;
-        this.startActivity(intent);
+        this.startActivityForResult(intent,MessageCode.SEND_BY_LAN);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        switch (requestCode){
+            case MessageCode.SEND_BY_LAN:{
+                if(resultCode==MessageCode.DEVICE_SELECTED){
+                    //extract data from intent and invoke process procedure
+                }
+            }
+            break;
+            default:
+                break;
+        }
     }
 
     public static void openFile(Context context, String file) {
@@ -199,5 +232,10 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    public static FileHandle selectedFile;
+    public static List<FileHandle> selectedFiles;
+    public static class MessageCode{
+        public static final int SEND_BY_LAN=10;
+        public static final int ACTIVITY_CANCELED=20;
+        public static final int DEVICE_SELECTED=21;
+    }
 }

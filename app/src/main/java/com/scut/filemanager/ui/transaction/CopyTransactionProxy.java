@@ -106,10 +106,12 @@ public class CopyTransactionProxy extends CopyTaskMonitor
     }
 
     @Override
-    public void onDialogNeutralClicked() {
+    public void onDialogNeutralClicked() { //onPaused
         if(isPause()){
             interruptSignal=false;
-            startTime=System.currentTimeMillis(); //reset start
+            startTime=System.currentTimeMillis(); //reset startTime
+            tracker.clear(); //reset tracker , this operation will reset the variable "byteOfCopied"
+
         }
         else {
             //notify UI now is pausing

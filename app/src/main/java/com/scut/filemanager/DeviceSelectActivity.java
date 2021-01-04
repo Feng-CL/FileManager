@@ -19,15 +19,15 @@ import androidx.appcompat.widget.Toolbar;
 
 import com.scut.filemanager.core.net.NetService;
 import com.scut.filemanager.ui.adapter.DeviceListViewAdapter;
+import com.scut.filemanager.ui.transaction.Request;
 
-import java.net.SocketException;
 import java.util.Timer;
 import java.util.TimerTask;
 
 /*
 @Description: 该活动主要用于处理选择发送设备的，把选择的索引发送给原来的activity
  */
-public class LanSenderActivity extends AppCompatActivity  {
+public class DeviceSelectActivity extends AppCompatActivity  {
 
     //UI outlets:
     Toolbar toolbar;
@@ -72,7 +72,7 @@ public class LanSenderActivity extends AppCompatActivity  {
                case UIMessageCode.NOTIFY_DATASET_CHANGE:
                    DeviceListViewAdapter.ItemData itemInMsg=(DeviceListViewAdapter.ItemData)msg.obj;
 
-                   Toast.makeText(LanSenderActivity.this,
+                   Toast.makeText(DeviceSelectActivity.this,
                            "pktId: "+String.valueOf(
                                    itemInMsg.id
                            ),
@@ -87,8 +87,14 @@ public class LanSenderActivity extends AppCompatActivity  {
                case UIMessageCode.UPDATE_TOOLBAR_SUBTITLE_TO_MESSAGE_CONTENT:
                    String subtitle= (String) msg.obj;
                    toolbar.setSubtitle(subtitle);
+                   break;
                case UIMessageCode.UPDATE_TOOLBAR_NO_SUBTITLE:
                    toolbar.setSubtitle("");
+                   break;
+               case FMGlobal.MAKE_TOAST:
+                   String tip= (String) msg.obj;
+                   Toast.makeText(DeviceSelectActivity.this,tip,Toast.LENGTH_SHORT).show();
+                   break;
                default:
                    super.handleMessage(msg);
                    break;
@@ -128,7 +134,7 @@ public class LanSenderActivity extends AppCompatActivity  {
         super.onCreate(savedInstanceState);
         Log.d(this.getClass().getName(),"lan sender activity start ");
         net_service=FMGlobal.netService;
-        net_service.bindLanSenderActivity(this);
+        net_service.bindDeviceSelectActivity(this);
         setContentView(R.layout.activity_lan_sender);
 
         //retrieve UI outlets:
@@ -194,9 +200,6 @@ public class LanSenderActivity extends AppCompatActivity  {
         this.net_service=ref;
     }
 
-    public DeviceListViewAdapter getListViewAdapter(){
-        return adapter;
-    }
 
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
@@ -228,5 +231,13 @@ public class LanSenderActivity extends AppCompatActivity  {
         }
         return consume_result;
 
+    }
+
+
+    public void makeToast(String toast_text){
+        this.mHandler.sendMessage(
+                Request.obtain(FMGlobal.MAKE_TOAST,
+                        toast_text  )
+        );
     }
 }

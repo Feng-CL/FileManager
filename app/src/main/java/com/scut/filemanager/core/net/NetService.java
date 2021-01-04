@@ -4,22 +4,28 @@ import android.content.Context;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Message;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
-import com.scut.filemanager.LanSenderActivity;
+import com.scut.filemanager.FMGlobal;
+import com.scut.filemanager.DeviceSelectActivity;
+import com.scut.filemanager.core.FileHandle;
+import com.scut.filemanager.core.ProgressMonitor;
 import com.scut.filemanager.core.Service;
 import com.scut.filemanager.core.internal.BoardCastScanWatcher;
 import com.scut.filemanager.ui.adapter.DeviceListViewAdapter;
+import com.scut.filemanager.ui.transaction.Request;
 import com.scut.filemanager.util.FMFormatter;
 
+import java.io.IOException;
+import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Enumeration;
+import java.util.List;
 
 //该类是启动和控制服务的起点，
 public class NetService extends BoardCastScanWatcher {
@@ -42,7 +48,7 @@ public class NetService extends BoardCastScanWatcher {
     //
 
     //UI Activity:
-    private LanSenderActivity lanSenderActivity=null;
+    private DeviceSelectActivity deviceSelectActivity =null;
 
     //function members
     private OnlineBoardCaster caster;
@@ -115,22 +121,34 @@ public class NetService extends BoardCastScanWatcher {
 
     }
 
+
+    /**
+     * 如果wifi未启用并连接，则会提示用户手动去连接，暂时不拉起相关设置页面
+     */
     public void startScanner() {
-        if(!isScanning) {
-            try {
-                DatagramSocket udpSocket = new DatagramSocket(33720); //33720 listen
-                this.scanner = new BoardCastScanner(udpSocket, this);
-                threads[0] = new Thread(this.scanner);
-                threads[0].start();
-            } catch (SocketException socket_exception) {
-                if (this.lanSenderActivity != null) {
-                    Message errMsg = Message.obtain();
-                    errMsg.what = LanSenderActivity.UIMessageCode.UPDATE_ERR_MSG;
-                    errMsg.obj = socket_exception.getMessage();
-                    this.lanSenderActivity.mHandler.sendMessage(errMsg);
+
+        if(getWifi_status()== NetStatus.WIFI_CONNECTED) {
+
+            if (!isScanning) {
+                try {
+                    DatagramSocket udpSocket = new DatagramSocket(33720); //33720 listen
+                    this.scanner = new BoardCastScanner(udpSocket, this);
+                    threads[0] = new Thread(this.scanner);
+                    threads[0].start();
+                } catch (SocketException socket_exception) {
+                    if (this.deviceSelectActivity != null) {
+                        Message errMsg = Message.obtain();
+                        errMsg.what = DeviceSelectActivity.UIMessageCode.UPDATE_ERR_MSG;
+                        errMsg.obj = socket_exception.getMessage();
+                        this.deviceSelectActivity.mHandler.sendMessage(errMsg);
+                    }
+                    return;
                 }
+                isScanning = true;
             }
-            isScanning=true;
+        }
+        else{
+            //notify user or report it to upper handler
         }
     }
 
@@ -157,6 +175,14 @@ public class NetService extends BoardCastScanWatcher {
         }
     }
 
+
+    public void send(InetAddress targetAddress, List<FileHandle> listOfFiles,ProgressMonitor<String,Long> monitor){
+        String rootPrefix="/";
+        if(listOfFiles.size()>0){
+
+        }
+    }
+
     /*
     @Description: return null if netServiceStatus isn't WIFI_CONNECTED
      */
@@ -177,20 +203,23 @@ public class NetService extends BoardCastScanWatcher {
         return str_builder.toString();
     }
 
-    @Override
-    public void handleInquirePacket(InquirePacket packet) {
 
-    }
 
+    /**
+     * 这里的函数应该是处理已经过滤过的InquirePacket,只有这样才能避免多次刷新界面
+     * @param key
+     * @param value
+     */
     @Override
     public void onProgress(InetAddress key, String value) {
+
         DeviceListViewAdapter.ItemData itemData=new DeviceListViewAdapter.ItemData(key.hashCode());
         itemData.DeviceIp=key.getHostAddress();
         itemData.DeviceName=value;
         Message message=Message.obtain();
-        message.what=LanSenderActivity.UIMessageCode.NOTIFY_DATASET_CHANGE;
+        message.what= DeviceSelectActivity.UIMessageCode.NOTIFY_DATASET_CHANGE;
         message.obj=itemData;
-        this.lanSenderActivity.mHandler.sendMessage(message);
+        this.deviceSelectActivity.mHandler.sendMessage(message);
     }
 
     enum NetStatus{
@@ -213,18 +242,129 @@ public class NetService extends BoardCastScanWatcher {
         @Params:
     */
 
-    public void bindLanSenderActivity(@NonNull LanSenderActivity activity){
-        this.lanSenderActivity=activity;
-        this.lanSenderActivity.setNetServiceRef(this);
+    public void bindDeviceSelectActivity(@NonNull DeviceSelectActivity activity){
+        this.deviceSelectActivity =activity;
+        this.deviceSelectActivity.setNetServiceRef(this);
     }
 
-    public void unBindLanSenderActivity(){
-        this.lanSenderActivity=null;
+    public void unBindDeviceSelectActivity(){
+        this.deviceSelectActivity =null;
     }
 
     public boolean isScanning(){
         return this.isScanning;
     }
 
+    /**
+     * 通知绑定的Activity以MessageEntry的形式
+     */
+    public void notifyActivityToToast(String text){
+        if(this.deviceSelectActivity !=null){
+            this.deviceSelectActivity.mHandler.sendMessage(
+                    Request.obtain(FMGlobal.MAKE_TOAST,text)
+            );
+        }
+    }
+
+
+    /**
+     * 该内部类相当于一个代理了构造询问包，建立连接的一个类，它独立于一个线程中工作，并且需要为它传入
+     * 监视器对象，至于监视器对象如何通知前端进行显示，需要由监视器对象根据取得的信息进行操作。
+     */
+    private class SendFilesTask implements Runnable{
+
+        ProgressMonitor<String,Long> monitor;
+        List<FileHandle> listOfFiles;
+        InetAddress targetAddress;
+
+        public SendFilesTask(InetAddress address, List<FileHandle> fileHandles, ProgressMonitor<String,Long> monitor){
+            this.monitor=monitor;
+            this.listOfFiles=fileHandles;
+            targetAddress=address;
+        }
+
+        @Override
+        public void run(){
+            monitor.onStart();
+            try {
+                DatagramSocket udpSocket=new DatagramSocket();
+                udpSocket.setSoTimeout(60*1000);
+
+                InquirePacket inquirePacket=prepareInquirePacket(listOfFiles);
+                try {
+                    byte[] bytesOfInquirePacket=inquirePacket.getBytes();
+                    DatagramPacket packet=new DatagramPacket(bytesOfInquirePacket,bytesOfInquirePacket.length,targetAddress,33720);
+
+                    udpSocket.send(packet);
+                    //waiting
+                    short respond=waitForACK(targetAddress);
+                    while(respond==0){
+                        //sleeping
+                        try{
+                            Thread.sleep(1500);
+                        } catch (InterruptedException e) {
+                            monitor.receiveMessage(MessageCode.ERR_INTERRUPT_EXCEPTION,e.getMessage() );
+                            monitor.onStop(PROGRESS_STATUS.FAILED);
+                            return;
+                        }
+                        respond=waitForACK(targetAddress);
+                    }
+                    //check whether opposite deny the connect request
+                    if(respond==-1){
+                        monitor.receiveMessage(MessageCode.NOTICE_CONNECT_DECLINED,"connect request is declined");
+                        monitor.onStop(PROGRESS_STATUS.ABORTED);
+                        return;
+                    }
+
+                    //prepare to build up connection
+
+
+                    
+                } catch (IOException e) {
+                    monitor.receiveMessage(MessageCode.ERR_IO_EXCEPTION,e.getMessage());
+                    monitor.onStop(PROGRESS_STATUS.FAILED);
+                    return;
+                }
+            } catch (SocketException e) {
+                monitor.receiveMessage(MessageCode.ERR_SOCKET_EXCEPTION,e.getMessage() );
+                monitor.onStop(PROGRESS_STATUS.FAILED);
+                return;
+            }
+            monitor.onFinished();
+        }
+
+
+        private InquirePacket prepareInquirePacket( List<FileHandle> list){
+            //temporary create a virtual parent folder to wrap the files in list
+            InquirePacket inquirePacket=new InquirePacket(InquirePacket.MessageCode.IP_FILES_AND_FOLDERS);
+            FileNode root=FileNode.createNodeFromList("wrap",0,list);
+            inquirePacket.obj=root;
+            return inquirePacket;
+        }
+
+        private short waitForACK(InetAddress ip){
+            InquirePacket inquirePacketFromIp=NetService.this.cacheTable.get(ip).poll();
+            if(inquirePacketFromIp==null){
+                return 0;
+            }
+            else {
+                if (inquirePacketFromIp.what == InquirePacket.MessageCode.ACK_IP_FILES_AND_FOLDERS) {
+                    return 1;
+                } else if (inquirePacketFromIp.what == InquirePacket.MessageCode.N_ACK_IP_FILES_AND_FOLDER) {
+                    return -1;
+                } else {
+                    return 0;
+                }
+            }
+        }
+    }
+
+
+    public static class MessageCode{
+        public static final int ERR_SOCKET_EXCEPTION=0;
+        public static final int ERR_IO_EXCEPTION=1;
+        public static final int ERR_INTERRUPT_EXCEPTION=2;
+        public static final int NOTICE_CONNECT_DECLINED=3;
+    }
 
 }

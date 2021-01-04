@@ -26,8 +26,37 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 
-//单线程服务对象，使用单体模式
+/**
+ * Description: 这是一个后台服务类对象，用于提供基本的文件访问操作服务
+ * app启动的时候，通过Service.getInstance(Activity context)绑定服务，
+ * 在获取服务实例后，通过服务的getStatus() 方法，判断服务启动情况，对应的
+ * 服务启动结果由Service.SERVICE_STATUS枚举得到。
+ *
+ * <p>我们主要通过服务类来:<br> 获取活动的上下文，获取app的外部存储的私有目录，
+ * 以及在外部存储路径下的某个子路径的文件句柄结果，一般我们通过getStorageDirPathName()获取到
+ * 一个根目录的文件句柄后，即可从该文件句柄出发，索引其他文件句柄对象
+ * </p>
+ *
+ * <p>
+ *     为了与用户称呼统一，以下将内部存储卡称为内部存储（Internal Storage）。sdcard称谓不变
+ * </p>
+ * <p>
+ *     安卓存储卷分为内部存储和外部存储，用户常说的内部存储（内存)虽然看上去是固化在手机内部
+ *     但实际上也还是外部存储，只是安卓利用了linux文件系统的挂载的概念，将其挂载到了一个叫
+ *     /storage的目录下了。既然是挂载那么获取到的目录就可以是一个列表，因为可以挂载多个存储卷
+ *     但实际上，就目前而言，android设备在出厂的时候已经默认挂载了一个存储卷，加上用户后来加的
+ *     sdcard，总共就两个。不过就目前的趋势来看，搭载安卓的设备已经开始逐步加大了对sd卡的限制
+ *     有些机型甚至不能使用sdcard扩展容量。
+ * </p>
+ */
+
 public class Service {
+
+    /**
+     * Description:服务的复制选项枚举.<br>
+     *     可选操作有，替换已存在；不修改元属性；不跟随符号链接进行复制，
+     *     递归复制文件夹
+     */
 
     public enum Service_CopyOption{
         REPLACE_EXISTING,   //替换已存在
@@ -129,14 +158,29 @@ public class Service {
         Log.d("core.Service","create a executor for core.service");
     };
 
+    /**
+     * Description:区别服务启动状态的枚举对象。OK 为一切正常
+     * <p><br> 包括有： OK（正常状态）,READ_ONLY(只读状态）,
+     * SDCARD_UNMOUNTED(sd卡未挂载），SDCARD_MOUNTED（sd卡已挂载）SDCARD_UNKNOWN（sd未知错误）
+     * SDCARD_EXCEPTION(sd卡异常，尝试重新检测）
+     * UNABLE_TO_READ_FILE_LIST, （即无法打开目录查看信息，）这与可读情况不同，
+     * EXCEPTION:意外情况，主要用于调试，不在实际应用代码中使用
+     * </p>
+     */
+
     public enum SERVICE_STATUS{
-        OK,                     //正常情况
+        OK,
         READ_ONLY,              //检测到只读
         SDCARD_UNMOUNTED, SDCARD_MOUNTED,SDCARD_UNKNOWN,SDCARD_EXCEPTION,
         UNABLE_TO_READ_FILE_LIST,   //检测到不可读取文件列表
         EXCEPTION                   //意外情况，用于调试
     }
 
+    /**
+     * Description: 获取一个绑定至对应活动的服务类
+     * @param app_context 提供程序上下文
+     */
+        
     public static Service getInstance(android.app.Activity app_context){
         if (!(svc instanceof Service)) {
             svc = new Service(app_context);
@@ -144,46 +188,84 @@ public class Service {
         return svc;
     }
 
+    /**
+     * Description: Service对象关于程序上下文的反射，在后续的控制器中会经常使用。
+     * getContext()获取服务类绑定的对应的android.app.Activity类，可省去函数传入多个参数的
+     * 麻烦。
+     */
+
     public android.app.Activity getContext(){
         return context;
     }
 
 
-    //app 启动前，应该去检查这些组件的状态。
+    /**
+     * Description:app 启动前，应该去检查基本的服务启动状态。
+     * 这个状态是对应内部存储的可操作状态的描述
+     * 查看{@link SERVICE_STATUS}了解可返回的结果
+     */
     public SERVICE_STATUS getStatus(){
         return status;
     }
+
+
+    /**
+     * Description: 获取关于SDCard状态的描述，由于android的安全机制，即使获得了写权限，也会有所限制。
+     */
     public SERVICE_STATUS getSdcardStatus(){
         return sdcard_status;
     }
 
-    //注意，这里的根目录指代/storage/emulated/0
-    //返回根目录绝对路径名
-    //API 级别 R
 
-    /*
-    * 返回外部存储的根目录（即外部存储中的內部存储路径名*/
+
+
+    /**
+     * Description: 返回根目录绝对路径名. 注意，这里的根目录指代/storage/emulated/0
+     */
+
     public String getStorageDirPathName() {
         return storage_emulated_0.getAbsolutePath();
     }
 
-    //返回封装类对象的句柄
+    /**
+     * Description:返回内部存储的根目录的文件句柄
+     */
+
     public FileHandle getStorageDirFileHandle(){
         return new FileHandle(storage_emulated_0);
     }
 
     /*
     * 这里的internal 和external 都是相对于内部存储卡和sd卡而言的
-    * 在根据下的/data /system  我们暂时不需要管理*/
+    * */
+    /**
+     * Description: 返回内部存储中的私有目录的绝对路径名
+     *
+     * <p>
+     *     这里的internal 和external 都是相对于内部存储卡和sd卡而言的.
+     *     在根据下的/data /system  我们暂时不需要管理
+     * </p>
+     * @return internal_storage_prefix/android/app/$package_name$ 这个目录会
+     * 以包名结尾
+     */
+
     public String getInternalPrivateDirectoryPathName(){
         return app_private_internal_dir.getAbsolutePath();
     }
 
+    /**
+     * Description:返回在sd卡中的私有目录
+     *
+     */
+        
     public String getExternalPrivateDirectoryPathName(){
         return app_private_external_dir.getAbsolutePath();
     }
 
-    //返回SD卡根目录名称
+    /**
+     * Description:返回SD卡根目录名称
+     */
+
     public String getSDCardRootDirectoryPathName(){
         if(sdcard_status==SERVICE_STATUS.SDCARD_MOUNTED){
             return storage_sdcard.getAbsolutePath();
@@ -193,7 +275,11 @@ public class Service {
         }
     }
 
-    //返回SD卡根目录句柄, 如果状态不合法则返回null
+    /**
+     * Description:返回SD卡根目录句柄, 如果状态不合法则返回null
+     *
+     */
+
     public FileHandle getSDCardRootDirectoryFileHandle() {
         if(sdcard_status==SERVICE_STATUS.SDCARD_MOUNTED){
             return new FileHandle(storage_sdcard);
@@ -203,16 +289,24 @@ public class Service {
         }
     }
 
-    /*
-    @Description:方便用于快速获取一个在内存存储卡下的路径，注意输入路径pathname
-    前不需要以 “/” 开头
-    @Params: pathname:String
-    @Return:返回结果为 /storage/emulated/0/pathname
+
+    /**
+     * Description:方便用于快速获取一个在内存存储卡下的路径，注意输入路径pathname
+     *     前不需要以 “/” 开头
+     * @param pathname 不需要"/"前缀
+     * @return /storage/emulated/0/pathname
      */
+
     public  String getPathUnderRootDir(String pathname){
         String temp=storage_emulated_0.getAbsolutePath()+"/";
         return temp.concat(pathname);
     }
+
+
+    /**
+     * Description:获取在内部存储前缀下的关于pathname的文件句柄对象
+     * @param pathname 不完整的从内部存储根目录出发的路径名
+     */
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     public  FileHandle getFileHandleUnderRootDir(String pathname){
@@ -221,6 +315,11 @@ public class Service {
     }
 
     //返回结果为 /storage/SD_CARD/pathname
+    /**
+     * Description:获取在sd卡根路径前缀下的关于pathname的完整路径名
+     * @param pathname 不完整的从sd卡根目录出发的路径名
+     */
+
     public String getPathUnderSdCard(String pathname){
         String temp=storage_sdcard.getAbsolutePath()+"/";
         return temp.concat(pathname);
@@ -277,6 +376,65 @@ public class Service {
         10=回滚情况
 
      */
+    /**
+     * Description:复制文件或文件夹到指定位置，需要提供目标路径和源文件，以及监视器和复制选项
+     * <p>
+     *     <em>Notice:</em> 请确保目标的有效性，dstPath必须是存在的路径，且是一个目录,该目录不能够是源文件的目录及其子目录。
+     * 复制一个目录到其子目录会发生很严重的不可收敛问题。
+     *     onFinished()在这里仅用于确认线程退出
+     *     </p>
+     * @param         src: 源文件句柄，可以是单个文件或者一个文件夹，当然传入的目标如果是不存在则该任务不会被执行。
+     * @param         dstPath: 目标路径，如果目标路径同样需要经过检验，需要是可写且存在的路径
+     * @param          monitor: 监视器对象，键值对类型为： <String,Long> 分别对应文件名和大小(字节)
+     * @param         allowRollBack: 用于设置当丢弃复制操作时是否进行抹去已复制内容的操作
+     * @param         options : Service_CopyOption枚举类型，目前只有RECURSIVE_COPY 和REPLACE_EXISTING可被解析
+     * <p>
+     *                        <em>Protocols: </em>
+     *                        <p>
+     *         任务开始后，先统计需要复制的文件的总大小totalSize，并以onProgress(K,V)函数，返回"totalSize":srcSize
+     *         到进度监视器中。
+     *         子任务开始时调用onSubTaskStart(), 并通过describeTask 设置子任务的title
+     *         在复制过程中，receiveMessage和onSubTaskStop()都是可选路径，即不一定会被调用。
+     *         如果目标文件夹所在分区容量不足，同样会调用receiveMessage和onStop()通报监视器
+     *         如果时复制过程中的产生的错误，onStop不会调用，而是调用onSubTaskStop()，因为这样，可以知道是哪个文件
+     *         的操作对应的任务产生了异常
+     *         生命周期函数调用概要:
+     *         onStart()->空间余量检测()
+     *         [{
+     *         onSubTaskStart(taskid)->describeTask(taskid,title)->
+     *         [onSubProgress(FileAbsolutePathName,numberOfBytesCopied)*->]
+     *         [
+     *         receiveMessage(MsgCode,message)->
+     *         onSubTaskStop(PROGRESS_STATUS.FAILED)
+     *         ->]
+     *         onSubTaskFinish(taskid)->
+     *         }*]
+     *         ->[receiveMessage(MsgCode,message)->onStop(PROGRESS_STATUS.FAILED)->]
+     *         onFinished()
+     *                        </p>
+     *                        <p>
+     *                            abortSignal() 与abortSignal(int slot)
+     *     默认丢弃使用abortSignal()检测，同时使用1号终止信号槽决定回滚是否应该终止
+     *     如果设置了回滚，最后会通过receiveMessage(code,msg),通告监视器回滚情况
+     *                        </p>
+     *                        <p>
+     *                            信息码描述：
+     *         receiveMessage(int code,String msg):
+     *         0=找不到文件
+     *         1=目标路径不可写
+     *         2=目标路径不存在
+     *         3=源文件不可读
+     *         4=流关闭错误
+     *         5=读写错误
+     *         6=创建文件夹失败
+     *         7=空间不足
+     *         8=未知错误
+     *         9=InterruptedException（这是java类的错误）
+     *         10=回滚情况
+     *                        </p>
+     * </p>
+     */
+
     public void copy(FileHandle src, String dstPath, ProgressMonitor<String,Long> monitor, boolean allowRollBack,Service_CopyOption... options){
         boolean replace_existing,copy_attribute,not_following_link,recursive_copy;
         replace_existing=parseOption(Service_CopyOption.REPLACE_EXISTING,options);
@@ -317,9 +475,11 @@ public class Service {
         //---------------------------------------------------------------
     }
 
-    /*
-        @Description:传入多个FileHandle对象进行复制
-    */
+
+    /**
+     * Description:传入多个FileHandle对象进行复制
+     * @param src FileHandle对象数组，不可空
+     */
 
     public void copy(FileHandle[] src,String dstPath,ProgressMonitor<String,Long> monitor,boolean allowRollBack,Service_CopyOption... options){
         boolean argument_test=true;
@@ -342,55 +502,51 @@ public class Service {
         }
     }
 
-    /*
-    @Description: 移动文件或文件夹到指定位置，需要提供目标路径和源文件，以及监视器
-    @Notices: 需要注意的是，务必在进行此操作前检查目标对象的有效性
-              如果设置了中断信号，需要先解除中断信号后再发送丢弃信号才可放弃该任务。
-              移动方法暂时不提供回滚操作
-    @Params:
-        src: 源文件句柄，可以是单个文件或者一个文件夹，当然传入的目标如果是不存在则该任务不会被执行。
-        dstPath: 目标路径，如果目标路径同样需要经过检验，需要是可写且存在的路径
-        monitor: 监视器对象，键值对类型为： <String,Long> 分别对应文件名和大小(字节)
-        option: 仅需按照需要设置为REPLACE_EXISTING 即可，应该由业务逻辑判断目标是否存在，因为
-        ProgressMonitor对交互式不太好
-    @Protocol:
-        调用路径
-        任务启动时，会调用onStart()标记启动状态
-        任务开始前，如果移动操作为存储卷之间的移动，则会先进行空间余量检测，不通过则任务会自动终止
-        任务进行时，会调用onProgress(当前正在操作的文件绝对路径名，进度值）
-        进度值取值为：0.0~1.0
-        任务异常时，会通过监视器的receiveMessage(code,msg)陆续通告消息，并伴随onStop(PROGRESS_STATUS.FAILED)
-        的调用。
-        任务正常结束则调用onFinished(), 否则将以onStop(某状态)来结束
 
-        使用到的方法：
-        receiveMessage(code,msg)
-        onStart() [onStop()] [onFinished()]
-        onProgress()
-
-
-
-    信息码描述：详细参照Service.MessageCode类
-        receiveMessage(int code,String msg):
-        0=找不到文件
-        1=目标路径不可写
-        2=目标路径不存在
-        3=源文件不可读
-        11=目标已存在该文件，且未设置覆写状态
-
-        //仅在不同挂载设备间复制时会出现
-        4=流关闭错误
-        5=读写错误
-        6=创建文件夹失败
-        //----------------------------
-
-        7=空间不足
-        8=未知错误
-        9=InterruptedException
-
-
+    /**
+     * Description:移动文件或文件夹到指定位置，需要提供目标路径和源文件，以及监视器
+     * @param src 源文件句柄，可以是单个文件或者一个文件夹，当然传入的目标如果是不存在则该任务不会被执行。
+     * @param dstPath 目标路径，如果目标路径同样需要经过检验，需要是可写且存在的路径
+     * @param option  仅需按照需要设置为REPLACE_EXISTING 即可，应该由业务逻辑判断目标是否存在，因为ProgressMonitor对交互不太好.
+     * @param monitor 监视器对象，键值对类型为： <String,Float> 分别对应文件名和进度值
+     * <p>
+     *                     <em>Protocols:</em><br>
+     *                             调用路径
+     *         任务启动时，会调用onStart()标记启动状态
+     *         任务开始前，如果移动操作为存储卷之间的移动，则会先进行空间余量检测，不通过则任务会自动终止
+     *         任务进行时，会调用onProgress(当前正在操作的文件绝对路径名，进度值）
+     *         进度值取值为：0.0~1.0
+     *         任务异常时，会通过监视器的receiveMessage(code,msg)陆续通告消息，并伴随onStop(PROGRESS_STATUS.FAILED)
+     *         的调用。
+     *         任务正常结束则调用onFinished(), 否则将以onStop(某状态)来结束
+     *
+     *         使用到的方法：
+     *         receiveMessage(code,msg)
+     *         onStart() [onStop()] [onFinished()]
+     *         onProgress()
+     * </p>
+     * <p>
+     *                     <h4>信息码描述：</h4>
+     *        详细参照Service.MessageCode类
+     *         receiveMessage(int code,String msg):
+     *         0=找不到文件
+     *         1=目标路径不可写
+     *         2=目标路径不存在
+     *         3=源文件不可读
+     *         11=目标已存在该文件，且未设置覆写状态
+     *
+     *         //仅在不同挂载设备间复制时会出现
+     *         4=流关闭错误
+     *         5=读写错误
+     *         6=创建文件夹失败
+     *         //----------------------------
+     *
+     *         7=空间不足
+     *         8=未知错误
+     *         9=InterruptedException
+     * </p>
+     *
      */
-
     public void move(FileHandle src, String dstPath,Service_CopyOption option,ProgressMonitor<String,Float> monitor){
         //two type of dstPath
         FileHandle dstFolder=new FileHandle(dstPath);
@@ -410,6 +566,10 @@ public class Service {
         svc_executor.execute(moveTask);
     }
 
+    /**
+     * Description:传入多个FileHandle进行复制
+     *
+     */
     public void move(List<FileHandle> selections,String dstPath,Service_CopyOption option,ProgressMonitor<String,Float> monitor){
         monitor.onStart();
         FileHandle dstFolder=new FileHandle(dstPath);
@@ -429,10 +589,11 @@ public class Service {
     }
 
 
-    /*
-    @Description: 判断给定路径是否存在文件，如果路径不合法，则返回false
+    /**
+     * Description: 判断给定路径是否存在文件，如果路径不合法，则返回false
+     * 合法性检测也可通过{@link FileHandle}中的方法进行判断
      */
-    public  boolean ExistsAtPath(String pathname){
+    public boolean ExistsAtPath(String pathname){
         if(isLegalPath(pathname)){
             FileHandle target=new FileHandle(pathname);
             return target.isExist();
@@ -443,14 +604,15 @@ public class Service {
     }
 
 
-    /*
-    @Description:判断给定路径是否合法,其中合法情况为：
-    1.目标存在于：
-    /storage/emulated/0
-    /storage/$sd_card$/
-    2.同时目标可访问(accessible)
-    判断路径是否合法后应该加入非法字符的判断，这里没有对非法字符进行检测
-    是否含有非法字符的检测见FileHandle类的静态方法containIllegalChar(String args)
+
+    /**
+     * Description:判断给定路径是否合法,其中合法情况为：<br>
+     *     1.目标存在于：
+     *     /storage/emulated/0
+     *     /storage/$sd_card$/
+     *     2.同时目标可访问(accessible)
+     *     判断路径是否合法后应该加入非法字符的判断，这里没有对非法字符进行检测
+     *     是否含有非法字符的检测见FileHandle类的静态方法containIllegalChar(String args)
      */
     public boolean isLegalPath(String pathname){
         String storage_0_path_prefix= getStorageDirPathName();
@@ -471,8 +633,8 @@ public class Service {
         }
     }
 
-    /*
-    @Description: 获取sdcard的型号,当然如果sdcard未挂载，返回null
+    /**
+     * Description:获取sdcard的型号,当然如果sdcard未挂载，返回null
      */
     public String getSDCardModel(){
         StringBuilder sdcard_model_strBuilder=new StringBuilder(getSDCardRootDirectoryPathName());
@@ -483,14 +645,20 @@ public class Service {
         return null;
     }
 
-    /*
-    @Description: 以服务级别来判断一个给定路径是否在sdcard 下，如果sd卡未挂载，则会返回false
+    /**
+     * Description:以服务级别来判断一个给定路径是否在sdcard 下，如果sd卡未挂载，则会返回false
+     * 之所以以服务级别来判断，是因为FileHandle无法在Service服务类启动前知道程序的上下文。
      */
+        
     public boolean isUnderSDCardPath(@NonNull String pathname){
         String sdcard_str=getSDCardRootDirectoryPathName();
         return pathname.startsWith(sdcard_str);
     }
-
+    
+    /**
+     * Description:以服务级别来判断一个给定路径是否在内存存储路径下，如果服务状态不为OK,则返回状态不确定
+     */
+        
     public boolean isUnderStoragePath(@NonNull String pathname){
         String storage_pathname= getStorageDirPathName();
 
@@ -501,24 +669,43 @@ public class Service {
     @Description: 获取内置存储卡的存储空间的大小，单位为字节
     如果需要转换单位或增添转换所需的工具类，参见filemanager.utiL包中的方法
      */
+    /**
+     * Description:获取内置存储卡的存储空间的大小，单位为字节
+     *     如果需要转换单位或增添转换所需的工具类，参见filemanager.util包中的方法
+     */
+        
     public long getStorageTotalCapacity(){
         return storage_emulated_0.getTotalSpace();
     }
 
-    /*
-    @Description: 获取
+    /**
+     * Description:获取内存存储的剩余可用空间
+     * 如果需要转换单位或增添转换所需的工具类，参见filemanager.util包中的方法
      */
+        
     public long getStorageFreeCapacity(){
         return storage_emulated_0.getFreeSpace();
     }
-
+    
+    /**
+     * Description:获取内存存储中剩余可用空间，这个值对应File.getUsableSpace的结果，这个值更加精确
+     */
+        
     public long getStorageUsableCapacity(){
         return storage_emulated_0.getUsableSpace();
     }
 
+    /**
+     * Description:获取Sd卡的总容量大小，返回单位为字节
+     */
+        
     public long getSdcardTotalCapacity(){
         return storage_sdcard.getTotalSpace();
     }
+
+    /**
+     * Description:获取Sd卡的可用空间大小，返回单位为字节
+     */
 
     public long getSdcardFreeCapacity(){
         return storage_sdcard.getFreeSpace();
@@ -538,19 +725,68 @@ public class Service {
         10=回滚情况
     */
 
+    /**
+     * Description:提供给进度监视器的消息码，通过消息码可判断对应消息的类型
+     * 消息都是封装为{@link MessageEntry}键值项
+     */
+
     static public final class MessageCode{
+
+        /**
+         * Description:找不到源文件
+         */
         static public final int FILE_NOT_FOUND=0;
+        /**
+         * Description: 目标路径不可写
+         */
         static public final int DEST_CANNOT_WRITE=1;
+        /**
+         * Description:找不到目标路径。
+         * 一般是因为destinationPath参数错误导致，也可能是因为destinationPath对应的文件没有互斥，导致在检测其存在性前
+         * destPath被删除了
+         */
         static public final int DEST_NOT_FOUND=2;
+        /**
+         * Description:源文件不可读，即创建读取流时失败了
+         */
         static public final int SOURCE_CANNOT_READ=3;
+        /**
+         * Description:流因为占用不可关闭，容易引起内存泄露
+         */
         static public final int STREAM_CLOSE_ERROR=4;
+        /**
+         * Description:读写错误，这是在通过流读取写入文件时发生的错误
+         */
         static public final int READ_WRITE_ERROR=5;
+        /**
+         * Description:创建文件夹失败，如果创建文件夹失败，将会导致其子目录下的文件也相继失效，
+         * 因此复制服务在继续复制前就终止了更多的错误发生。
+         */
         static public final int MKDIR_FAILS=6;
+        /**
+         * Description: 没有足够空间，在服务进行任何复制操作前都会都会检测可用空间情况
+         */
         static public final int NO_ENOUGH_SPACE=7;
+        /**
+         * Description: 未知错误，标记超出程序理解范围的错误
+         */
         static public final int UNKNOWN_ERROR=8;
+        /**
+         * Description: 进程休眠的中断错误，这是一个java类错误，一般出现在暂停阶段
+         */
         static public final int INTERRUPTED_EXCEPTION_WHILE_WAITING=9;
+        /**
+         * Description: 回归情况汇报，这不是一个错误信息码
+         */
         static public final int ROLL_BACK_REPORT=10;
+        /**
+         * Description: 目标路径已存在文件，如果复制选项没有设置替换存在，则会抛出此错误
+         */
         static public final int DEST_EXIST_FILE=11;
+        /**
+         * Description: 递归复制错误，在服务启动时，会检查目标路径是否为源目录的子目录，如果是，则拒绝
+         * 该复制请求，并向其发送该错误信息。
+         */
         static public final int DEST_PATH_CANNOT_CONTAIN_SRC_FOLDER=12;
     }
 

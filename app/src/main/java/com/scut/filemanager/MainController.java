@@ -61,6 +61,10 @@ public class MainController {
 
     }
 
+    public String getServiceStatus(){
+        return service.getStatus().name();
+    }
+
     public void startNetService() throws SocketException {
         if(service!=null){
             netService=NetService.getInstance(service);

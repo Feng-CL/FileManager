@@ -22,14 +22,6 @@ abstract public class BoardCastScanWatcher extends AbstractTaskMonitor<InetAddre
     protected void pushMessage(int code, String msg) {
         this.MessagesStack.push(new MessageEntry(code,msg));
     }
-    
-    /*
-        @Description:此处立即处理进来的包
-        @Params:
-    */
-        
-    abstract public void handleInquirePacket(InquirePacket packet);
-
 
     /*
         @Description:这里将包压入缓冲表

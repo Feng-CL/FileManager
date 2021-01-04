@@ -17,6 +17,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
+import com.scut.filemanager.FMGlobal;
 import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.FileHandleFilter;
@@ -55,13 +56,7 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
 
     //sorter
     private Comparator<FileHandle> comparator=null;
-    private static Comparator<FileHandle> default_comparator=new Comparator<FileHandle>() {
-        @Override
-        public int compare(FileHandle f1, FileHandle f2) {
-            String str_f1=f1.getName(); String str_f2=f2.getName();
-            return str_f1.compareTo(str_f2);
-        }
-    };
+    private static Comparator<FileHandle> default_comparator= FMGlobal.Default_FileHandleComparator;
 
     //status maintain
 
@@ -235,10 +230,7 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
 
 
 
-    /*
-    目前加载view的方法容易阻塞，即是一次刷新的架构，需要等待所有的空间内容都加载出来后
-    其父控件才开始显示其内容，为此为了打开文件比较多的文件夹时，需要考虑使用双线程显示与内容计算分离的方法。
-     */
+
     //listView attempts to reuse view objects in order to improve performance and avoid a lag in response to user scrolls.
 
     @RequiresApi(api = Build.VERSION_CODES.O)
