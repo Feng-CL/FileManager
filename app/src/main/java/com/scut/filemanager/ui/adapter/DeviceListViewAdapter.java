@@ -11,6 +11,10 @@ import androidx.annotation.NonNull;
 
 import com.scut.filemanager.R;
 
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.Iterator;
@@ -19,6 +23,7 @@ import java.util.List;
 public class DeviceListViewAdapter extends BaseAdapter {
     //data models
     private List<ItemData>  table =new ArrayList<>(5);
+
     //inflater
     private LayoutInflater inflater;
 
@@ -112,6 +117,16 @@ public class DeviceListViewAdapter extends BaseAdapter {
            }
         }
         return false;
+    }
+
+    public InetAddress getSelectedTarget() throws UnknownHostException {
+        for (ItemData item :
+                table) {
+            if (item.isSelected){
+                return Inet4Address.getByName(item.DeviceIp);
+            }
+        }
+        return null;
     }
 
     public static class ItemData{

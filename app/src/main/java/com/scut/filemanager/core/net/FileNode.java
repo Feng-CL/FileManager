@@ -1,23 +1,34 @@
 package com.scut.filemanager.core.net;
 
+import androidx.annotation.NonNull;
+
 import com.scut.filemanager.core.FileHandle;
 
 
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
 public class FileNode {
-    public Set<FileNode> children =null; //之所以只是使用Set是因为文件名具有唯一性，不可以让列表中出现两个文件
+    public LinkedHashSet<FileNode> children =null; //之所以只是使用Set是因为文件名具有唯一性，不可以让列表中出现两个文件
     public String name;
+    public FileNode parent=null;
     public long size=0L;
 
     public FileNode(boolean isDirectory){
         if(isDirectory){
-            children=new HashSet<>();
+            children=new LinkedHashSet<>();
         }
     }
 
+
+    /**
+     * true value will implicitly indicate that it is a folder
+     * else it is a file or an directory
+     * @return
+     */
     public boolean hasChildren(){
         if(children !=null){
             return children.size()>0;
@@ -59,7 +70,7 @@ public class FileNode {
      * @param fileHandles 子节点数据来源
      * @return FileNode 文件节点
      */
-    public static FileNode createNodeFromList(String name, long size,List<FileHandle> fileHandles){
+    public static FileNode createNodeFromList(String name, long size,List<FileHandle> fileHandles,FileNode parent){
         FileNode node;
         if(fileHandles==null){
             node=new FileNode(false);
@@ -69,16 +80,17 @@ public class FileNode {
             node=new FileNode(true);
             for (FileHandle h :
                     fileHandles) {
-                node.children.add(createNodeFromArray(h.getName(),h.Size(), h.listFiles()));
+                node.children.add(createNodeFromArray(h.getName(),h.Size(), h.listFiles(),node ));
             }
             node.size=size;
         }
         node.name=name;
+        node.parent=parent;
         return node;
     }
 
 
-    public static FileNode createNodeFromArray(String name, long size,FileHandle[] handleArray){
+    public static FileNode createNodeFromArray(String name, long size,FileHandle[] handleArray,FileNode parent){
         FileNode node;
         if(handleArray==null){
             node=new FileNode(false);
@@ -88,12 +100,28 @@ public class FileNode {
             node=new FileNode(true);
             for (FileHandle h :
                     handleArray) {
-                node.children.add(createNodeFromArray(h.getName(), h.Size(),h.listFiles()));
+                node.children.add(createNodeFromArray(h.getName(), h.Size(),h.listFiles(),node));
             }
             node.size=size;
         }
+        node.parent=parent;
         node.name=name;
         return node;
+    }
+
+    public String getPath(){
+        if(parent==null){
+            return "/"+name;
+        }
+        else{
+            return parent.getPath().concat("/").concat(name);
+        }
+    }
+
+    public FileHandle toFileHandle(String attachToRoot){
+        return new FileHandle(
+                attachToRoot+getPath()
+        );
     }
 
 

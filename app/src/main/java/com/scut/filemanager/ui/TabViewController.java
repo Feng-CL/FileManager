@@ -1,6 +1,7 @@
 package com.scut.filemanager.ui;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -25,17 +26,14 @@ import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.Service;
 import com.scut.filemanager.core.concurrent.SharedThreadPool;
-import com.scut.filemanager.core.internal.DeleteTaskMonitor;
 import com.scut.filemanager.ui.adapter.SimpleListViewItemAssembler;
 import com.scut.filemanager.ui.dialog.LocationPickDialogDelegate;
-import com.scut.filemanager.ui.dialog.NotifyDialog;
+import com.scut.filemanager.ui.dialog.NotifyDialog_old;
 import com.scut.filemanager.ui.dialog.SingleLineInputDialogDelegate;
 import com.scut.filemanager.ui.protocols.DialogCallBack;
-import com.scut.filemanager.ui.protocols.InputConfirmCallBack;
 import com.scut.filemanager.ui.protocols.LocationPickerCallback;
 import com.scut.filemanager.ui.protocols.SingleLineInputDialogCallBack;
 import com.scut.filemanager.ui.transaction.CopyTransactionProxy;
-import com.scut.filemanager.ui.transaction.MIME_MapTable;
 import com.scut.filemanager.ui.transaction.MoveTransactionProxy;
 import com.scut.filemanager.util.protocols.DisplayFolderChangeResponder;
 import com.scut.filemanager.util.protocols.KeyDownEventHandler;
@@ -513,7 +511,7 @@ public class TabViewController extends BaseController implements AdapterView.OnI
             implements DialogCallBack{
 
         @Override
-        public void onDialogClose(boolean updateView) {
+        public void onDialogClose(DialogInterface dialog,boolean updateView) {
             if(updateView){
                 clearOperationState();
                 setDisplayFolder(current);
@@ -521,22 +519,22 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         }
 
         @Override
-        public void onDialogCancel() {
+        public void onDialogCancel(DialogInterface dialog) {
 
         }
 
         @Override
-        public void onDialogHide() {
+        public void onDialogHide(DialogInterface dialog) {
 
         }
 
         @Override
-        public void onDialogNeutralClicked() {
+        public void onDialogNeutralClicked(DialogInterface dialog) {
 
         }
 
         @Override
-        public void onDialogOk() {
+        public void onDialogOk(DialogInterface dialog) {
             if(operation_state==OPERATION_STATE.DELETE){
                 List<FileHandle> selectedFiles=adapter.getSelectedFileHandles();
                 QueueTask queueTask=new QueueTask(selectedFiles);
@@ -564,7 +562,7 @@ public class TabViewController extends BaseController implements AdapterView.OnI
                     delete_result&=fileHandle._deleteRecursively(null);
                 }
                 makeToast(delete_result);
-                onDialogClose(true);
+                onDialogClose(null,true);
             }
         }
 
@@ -635,22 +633,22 @@ public class TabViewController extends BaseController implements AdapterView.OnI
                     break;
                 case 5:{
                     operation_state=OPERATION_STATE.DELETE;
-                    NotifyDialog notifyDialog=new NotifyDialog(NotifyDialog.dialogType.ACTION_DELETE,getContext(),new NotifyDialogCallBack());
-                    notifyDialog.showDialog();
+                    NotifyDialog_old notifyDialogOld =new NotifyDialog_old(NotifyDialog_old.dialogType.ACTION_DELETE,getContext(),new NotifyDialogCallBack());
+                    notifyDialogOld.showDialog();
                 }
                     break;
                 case 6:{
                     operation_state=OPERATION_STATE.MORE;
                     NotifyDialogCallBack callBack= new NotifyDialogCallBack();
                     if(selectedCount>1){
-                        NotifyDialog notifyDialog=new NotifyDialog(NotifyDialog.dialogType.ACTION_DETAIL_MULTI,getContext(),callBack);
-                        notifyDialog.setDataSource(adapter.getSelectedFileHandles());
-                        notifyDialog.showDialog();
+                        NotifyDialog_old notifyDialogOld =new NotifyDialog_old(NotifyDialog_old.dialogType.ACTION_DETAIL_MULTI,getContext(),callBack);
+                        notifyDialogOld.setDataSource(adapter.getSelectedFileHandles());
+                        notifyDialogOld.showDialog();
                     }
                     else if(selectedCount==1) {
-                        NotifyDialog notifyDialog = new NotifyDialog(NotifyDialog.dialogType.ACTION_DETAIL,getContext(),callBack);
-                        notifyDialog.setDataSource(adapter.getSelectedFile());
-                        notifyDialog.showDialog();
+                        NotifyDialog_old notifyDialogOld = new NotifyDialog_old(NotifyDialog_old.dialogType.ACTION_DETAIL,getContext(),callBack);
+                        notifyDialogOld.setDataSource(adapter.getSelectedFile());
+                        notifyDialogOld.showDialog();
                     }
                 }
                     break;

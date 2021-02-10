@@ -5,6 +5,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.scut.filemanager.core.ProgressMonitor;
+import com.scut.filemanager.core.internal.BoardCastScanWatcher;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -21,11 +22,11 @@ public class BoardCastScanner implements Runnable {
     static InetSocketAddress MultiCastAddress = new InetSocketAddress(33720);
     private DatagramSocket udpSocket;
     private boolean stopScanning = false;
-    private ProgressMonitor<InetAddress,String> watcher;
+    private BoardCastScanWatcher watcher;
     private byte[] buf = new byte[8 * 1024];
     private DatagramPacket rcvPacket = null;
 
-    public BoardCastScanner(@NonNull DatagramSocket bindUdpSocket,@NonNull ProgressMonitor<InetAddress,String> watcher) {
+    public BoardCastScanner(@NonNull DatagramSocket bindUdpSocket,@NonNull BoardCastScanWatcher watcher) {
         this.udpSocket = bindUdpSocket;
         try {
             this.udpSocket.setSoTimeout(15 * 1000);
@@ -65,15 +66,16 @@ public class BoardCastScanner implements Runnable {
                 byte[] subBytes=Arrays.copyOf(rcvPacket.getData(),rcvPacket.getLength());
                 InquirePacket inquirePacketReceived=InquirePacket.decodeToThis(subBytes);
                 inquirePacketReceived.ip=rcvPacket.getAddress();
-                watcher.onProgress(inquirePacketReceived.ip,inquirePacketReceived.description); //暂时先这样处理
-                //watcher.onProgress(deviceName,rcvPacket.getAddress());
+                //空心跳包由onProgress处理，控制信号包压入缓冲表
+                watcher.onProgress(inquirePacketReceived.ip,inquirePacketReceived);
+
                 if(watcher.abortSignal()){
                     stopScanning=true;
                 }
             }
             catch(SocketTimeoutException timeoutException){
                 watcher.receiveMessage(WatcherMsgCode.PERIOD_TIMEOUT,timeoutException.getMessage());
-                watcher.onStop(ProgressMonitor.PROGRESS_STATUS.PAUSED); //扫描器暂时超时
+                //watcher.onStop(ProgressMonitor.PROGRESS_STATUS.PAUSED); //扫描器暂时超时
                 while(watcher.interruptSignal()){
                     try {
                         this.wait(1000);

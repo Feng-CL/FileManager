@@ -1,10 +1,9 @@
 package com.scut.filemanager.ui.transaction;
 
+import android.content.DialogInterface;
 import android.os.Handler;
-import android.os.SystemClock;
 
 import com.scut.filemanager.core.FileHandle;
-import com.scut.filemanager.core.ProgressMonitor;
 import com.scut.filemanager.core.Service;
 import com.scut.filemanager.core.internal.CopyTaskMonitor;
 import com.scut.filemanager.core.internal.MessageEntry;
@@ -12,7 +11,6 @@ import com.scut.filemanager.ui.BaseController;
 import com.scut.filemanager.ui.TabViewController;
 import com.scut.filemanager.ui.dialog.ProgressDialogDelegate;
 import com.scut.filemanager.ui.protocols.ProgressDialogContentProvider;
-import com.scut.filemanager.util.FMArrays;
 import com.scut.filemanager.util.FMFormatter;
 
 import java.util.List;
@@ -81,7 +79,7 @@ public class CopyTransactionProxy extends CopyTaskMonitor
 
 
     @Override
-    public void onDialogClose(boolean updateView) {
+    public void onDialogClose(DialogInterface dialog,boolean updateView) {
         if(updateView){
             if(parentController instanceof TabViewController){
                 TabViewController c= (TabViewController) parentController;
@@ -91,7 +89,7 @@ public class CopyTransactionProxy extends CopyTaskMonitor
     }
 
     @Override
-    public void onDialogCancel() {
+    public void onDialogCancel(DialogInterface dialog) {
         /*
         主线程的进度对话框dismiss之后，this.targetHandler将可能会被垃圾回收，这里需要注意
         因为在后续线程结束的时候还会调用onFinished,而onFinished此时不能使用targetHandler来更新UI，改用Toast
@@ -101,12 +99,12 @@ public class CopyTransactionProxy extends CopyTaskMonitor
 
     private boolean isDialogHide=false;
     @Override
-    public void onDialogHide() {
+    public void onDialogHide(DialogInterface dialog) {
         isDialogHide=true;
     }
 
     @Override
-    public void onDialogNeutralClicked() { //onPaused
+    public void onDialogNeutralClicked(DialogInterface dialog) { //onPaused
         if(isPause()){
             interruptSignal=false;
             startTime=System.currentTimeMillis(); //reset startTime
@@ -123,7 +121,7 @@ public class CopyTransactionProxy extends CopyTaskMonitor
     }
 
     @Override
-    public void onDialogOk() {
+    public void onDialogOk(DialogInterface dialog) {
 
     }
 

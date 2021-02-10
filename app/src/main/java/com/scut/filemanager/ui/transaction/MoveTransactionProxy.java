@@ -1,5 +1,6 @@
 package com.scut.filemanager.ui.transaction;
 
+import android.content.DialogInterface;
 import android.os.Handler;
 
 import com.scut.filemanager.core.FileHandle;
@@ -123,7 +124,7 @@ public class MoveTransactionProxy extends AbstractTaskMonitor<String,Float> impl
     }
 
     @Override
-    public void onDialogClose(boolean updateView) {
+    public void onDialogClose(DialogInterface dialogInterface, boolean updateView) {
         if(updateView){
             if(parentController instanceof TabViewController){
                 TabViewController c= (TabViewController) parentController;
@@ -133,7 +134,7 @@ public class MoveTransactionProxy extends AbstractTaskMonitor<String,Float> impl
     }
 
     @Override
-    public void onDialogCancel() {
+    public void onDialogCancel(DialogInterface dialogInterface) {
         sendCancelSignal(0);
     }
 
@@ -143,12 +144,12 @@ public class MoveTransactionProxy extends AbstractTaskMonitor<String,Float> impl
 
     private boolean isDialogHide=false;
     @Override
-    public void onDialogHide() {
+    public void onDialogHide(DialogInterface dialogInterface) {
         isDialogHide=true;
     }
 
     @Override
-    public void onDialogNeutralClicked() {
+    public void onDialogNeutralClicked(DialogInterface dialogInterface) {
         if(isPause()){
             interruptSignal=false;
         }
@@ -162,7 +163,7 @@ public class MoveTransactionProxy extends AbstractTaskMonitor<String,Float> impl
     }
 
     @Override
-    public void onDialogOk() {
+    public void onDialogOk(DialogInterface dialogInterface) {
         //onDialogHide 代替
     }
 

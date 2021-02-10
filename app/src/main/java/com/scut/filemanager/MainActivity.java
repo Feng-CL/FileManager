@@ -10,6 +10,7 @@ import androidx.core.content.FileProvider;
 import android.Manifest;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -24,12 +25,19 @@ import android.widget.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.SocketException;
 import java.util.List;
 
 import com.scut.filemanager.core.FileHandle;
+import com.scut.filemanager.core.net.FileNodeWrapper;
+import com.scut.filemanager.core.net.InquirePacket;
+import com.scut.filemanager.ui.dialog.NotifyDialogDelegate;
 import com.scut.filemanager.ui.dialog.SingleLineInputDialogDelegate;
+import com.scut.filemanager.ui.protocols.AbstractDialogCallBack;
+import com.scut.filemanager.ui.transaction.FileTransferTransactionMiddleWare;
 import com.scut.filemanager.ui.transaction.MIME_MapTable;
+import com.scut.filemanager.util.FMFormatter;
 
 public class MainActivity extends AppCompatActivity
 
@@ -46,6 +54,32 @@ public class MainActivity extends AppCompatActivity
                     }
                     Toast.makeText(MainActivity.this,text,Toast.LENGTH_SHORT).show();
                     break;
+                case MessageCode.INVOKE_RECEIVE_INQUIRY_DIALOG:
+                    final InquirePacket packet= (InquirePacket) msg.obj;
+                    String notification=packet.ip.getHostAddress().concat(" is sending files to you, do you want to receive? " +
+                            "the files' size is ").concat(
+                                   FMFormatter.getSuitableFileSizeString(
+                                           ((FileNodeWrapper)(packet.obj)).getTotalSize()
+                                    )
+                    );
+                    NotifyDialogDelegate delegate=new NotifyDialogDelegate(MainActivity.this, new AbstractDialogCallBack() {
+                        @Override
+                        public void onDialogOk(DialogInterface dialog) {
+                            //invoke location picker dialog and receiver task transaction middle ware
+                            FileTransferTransactionMiddleWare middleWare=new FileTransferTransactionMiddleWare(
+                                    FileTransferTransactionMiddleWare.TaskType.RECEIVE,MainActivity.this,
+                                    controller.netService
+                            );
+                            middleWare.executeReceiveTask(packet,controller.service);
+                            dialog.dismiss();
+                        }
+
+                        @Override
+                        public void onDialogClose(DialogInterface dialog, boolean updateView) {
+                            dialog.cancel();
+                        }
+                    }, MainActivity.this.getResources().getString(R.string.dialogTitle_receiveFiles), notification);
+                    delegate.show();
                 default:
                     break;
             }
@@ -208,6 +242,11 @@ public class MainActivity extends AppCompatActivity
             case MessageCode.SEND_BY_LAN:{
                 if(resultCode==MessageCode.DEVICE_SELECTED){
                     //extract data from intent and invoke process procedure
+                    InetAddress targetAddress= (InetAddress) data.getSerializableExtra("selected_device");
+                    FileTransferTransactionMiddleWare middleWare=new FileTransferTransactionMiddleWare(
+                            FileTransferTransactionMiddleWare.TaskType.SEND,this,controller.netService
+                    );
+                    middleWare.executeSendTask(targetAddress,selectedFiles);
                 }
             }
             break;
@@ -232,9 +271,16 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    public Handler getHandler(){
+        return this.mHandler;
+    }
+
+
     public static List<FileHandle> selectedFiles;
+
     public static class MessageCode{
         public static final int SEND_BY_LAN=10;
+        public static final int INVOKE_RECEIVE_INQUIRY_DIALOG=11;
         public static final int ACTIVITY_CANCELED=20;
         public static final int DEVICE_SELECTED=21;
     }

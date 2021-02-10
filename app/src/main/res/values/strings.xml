@@ -10,6 +10,7 @@
     <string name="emptyFolderHint">this is an empty folder</string>
     <string name="dialogTitle_newFile">New File</string>
     <string name="dialogTitle_newFolder">Make Directory</string>
+    <string name="dialogTitle_receiveFiles">Notification</string>
     <string name="editText_placeholder">Input text here...</string>
     <string name="editText_illegal_input_hint">Cannot contain illegal character</string>
 
@@ -27,6 +28,7 @@
     <string name="DialogProgress_move">Moving Files</string>
     <string name="DialogProgress_sending">Sending Files</string>
     <string name="DialogProgress_delete">Deleting Files</string>
+    <string name="DialogProgress_receiving">Receiving</string>
 
     <string name="dialogTitle_delete">Delete</string>
     <string name="delete_confirm">Are you sure to delete?</string>

@@ -82,4 +82,12 @@ public class FMFormatter {
                     ((IP4Address >> 16 ) & 0xFF) + "." +
                     ( IP4Address >> 24 & 0xFF) ;
     }
+
+
+    private static DecimalFormat decimalFormat_d2s=new DecimalFormat();
+    public static String d2s(double d, int savePoint){
+        decimalFormat_d2s.setMaximumFractionDigits(savePoint);
+        return decimalFormat_d2s.format(d);
+    }
+
 }

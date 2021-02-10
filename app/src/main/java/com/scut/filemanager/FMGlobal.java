@@ -29,5 +29,9 @@ public class FMGlobal {
         }
     };
 
+    static public final int ListenerPort=33721;
+    static public final int BoardCastReceivePort=33720;
+    static public final int Default_BlockSize=2*1024*1024;
+
     static public final int MAKE_TOAST=-2; //special message code
 }

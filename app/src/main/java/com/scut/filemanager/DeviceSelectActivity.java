@@ -1,5 +1,6 @@
 package com.scut.filemanager;
 
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -21,6 +22,8 @@ import com.scut.filemanager.core.net.NetService;
 import com.scut.filemanager.ui.adapter.DeviceListViewAdapter;
 import com.scut.filemanager.ui.transaction.Request;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -34,7 +37,7 @@ public class DeviceSelectActivity extends AppCompatActivity  {
     ListView listView;
 
     //adapter for list view
-    DeviceListViewAdapter adapter;
+    public DeviceListViewAdapter adapter;
 
 
     //NetService reference:
@@ -72,14 +75,15 @@ public class DeviceSelectActivity extends AppCompatActivity  {
                case UIMessageCode.NOTIFY_DATASET_CHANGE:
                    DeviceListViewAdapter.ItemData itemInMsg=(DeviceListViewAdapter.ItemData)msg.obj;
 
-                   Toast.makeText(DeviceSelectActivity.this,
-                           "pktId: "+String.valueOf(
-                                   itemInMsg.id
-                           ),
-                           Toast.LENGTH_SHORT).show();
-
-                   adapter.addItems(itemInMsg);
-                   adapter.notifyDataSetChanged();
+//                   Toast.makeText(DeviceSelectActivity.this,
+//                           "pktId: "+String.valueOf(
+//                                   itemInMsg.id
+//                           ),
+//                           Toast.LENGTH_SHORT).show();
+                    if(adapter.contain(itemInMsg)){
+                        adapter.addItems(itemInMsg);
+                        adapter.notifyDataSetChanged();
+                    }
                    break;
                case UIMessageCode.NOTIFY_CLOSE_ACTIVITY:
                    finish();
@@ -206,6 +210,8 @@ public class DeviceSelectActivity extends AppCompatActivity  {
         boolean consume_result;
         switch (item.getItemId()){
             case R.id.menu_item_lan_scan:
+
+                    //这里的scan按钮调用的函数需要修改一下，扫描是时刻进行的, 根据需要过滤各类包
                     if(!net_service.isScanning()) {
                         mHandler.sendEmptyMessage(UIMessageCode.UPDATE_TOOLBAR_SUBTITLE_TO_SCANNING);
                         item.setTitle("stop");
@@ -221,9 +227,20 @@ public class DeviceSelectActivity extends AppCompatActivity  {
                         item.setTitle("scan");
                     }
                     consume_result=true;
+
                 break;
             case R.id.menu_item_lan_send:
                 consume_result=true;
+                //save targets and exit the activity
+                Intent intent=new Intent();
+                try {
+                    InetAddress targetAddress=adapter.getSelectedTarget();
+                    intent.putExtra("selected_device",targetAddress);
+                    this.setResult(MainActivity.MessageCode.DEVICE_SELECTED,intent);
+                } catch (UnknownHostException e) {
+                    makeToast(e.getMessage());
+                }
+                finish();
                 break;
             default:
                 consume_result= super.onOptionsItemSelected(item);

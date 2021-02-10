@@ -6,10 +6,11 @@ import android.view.ViewGroup;
 
 import com.scut.filemanager.FMGlobal;
 import com.scut.filemanager.core.Service;
+import com.scut.filemanager.ui.protocols.AbstractDialogCallBack;
 import com.scut.filemanager.ui.transaction.Request;
 import com.scut.filemanager.ui.transaction.TransactionProxy;
 
-public abstract class BaseController {
+public abstract class BaseController extends AbstractDialogCallBack {
     protected Handler mHandler;
     protected ViewGroup parentView;
     protected BaseController parentController;

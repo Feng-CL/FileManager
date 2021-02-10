@@ -97,8 +97,15 @@ abstract public class AbstractTaskMonitor<K,V> implements ProgressMonitor<K,V>{
 
     @Override
     public void setUpAbortSignalSlot(boolean[] slot) {
-
+        //暂时没用
     }
 
+    public void sendInterruptSignal(boolean signal){
+        interruptSignal=signal;
+    }
+
+    public void sendCancelSignal(){
+        cancelSignal=true;
+    }
 
 }

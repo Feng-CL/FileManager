@@ -10,8 +10,11 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.scut.filemanager.core.Service;
+import com.scut.filemanager.core.net.InquirePacket;
 import com.scut.filemanager.core.net.NetService;
 import com.scut.filemanager.ui.TabViewController;
+import com.scut.filemanager.ui.protocols.DialogCallBack;
+import com.scut.filemanager.ui.transaction.Request;
 import com.scut.filemanager.util.protocols.KeyDownEventHandler;
 
 import java.io.IOException;
@@ -25,7 +28,7 @@ public class MainController {
     public Service service=null;
     public NetService netService=null;
     private Context context=null;
-    private AppCompatActivity main_activity=null;
+    private MainActivity main_activity=null;
     //--------------------------------------------
 
     //controller it manages
@@ -48,7 +51,7 @@ public class MainController {
     public boolean startService(android.app.Activity app_context) {
         service = Service.getInstance(app_context);
         context = app_context;
-        main_activity = (AppCompatActivity) context;
+        main_activity = (MainActivity) context;
 
 
         //check Service status
@@ -69,6 +72,7 @@ public class MainController {
         if(service!=null){
             netService=NetService.getInstance(service);
         }
+        netService.setMainController(this);
         netService.startBoardCaster();
     }
 
@@ -117,6 +121,12 @@ public class MainController {
 
     public TabViewController getTabViewController(){
         return tabViewController;
+    }
+
+    public void InvokeReceiveInquireDialog(InquirePacket packet){
+        main_activity.getHandler().sendMessage(
+                Request.obtain(MainActivity.MessageCode.INVOKE_RECEIVE_INQUIRY_DIALOG,packet)
+        );
     }
 
 

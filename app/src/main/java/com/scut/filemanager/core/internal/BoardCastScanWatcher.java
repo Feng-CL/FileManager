@@ -9,7 +9,7 @@ import java.util.ArrayDeque;
 import java.util.Hashtable;
 import java.util.Queue;
 
-abstract public class BoardCastScanWatcher extends AbstractTaskMonitor<InetAddress,String> {
+abstract public class BoardCastScanWatcher extends AbstractTaskMonitor<InetAddress,InquirePacket> {
 
     protected Hashtable<InetAddress, Queue<InquirePacket>> cacheTable=new Hashtable<>();
     

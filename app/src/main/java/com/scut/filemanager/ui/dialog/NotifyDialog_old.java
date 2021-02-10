@@ -29,7 +29,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.logging.LogRecord;
 
-public class NotifyDialog {
+public class NotifyDialog_old {
 
 
     private AlertDialog.Builder builder;
@@ -69,7 +69,7 @@ public class NotifyDialog {
                     break;
                 case dialogMessageCode.CLOSE_DIALOG:{
                     alertDialog.dismiss();
-                    theCallBack.onDialogClose(false);
+                    theCallBack.onDialogClose(null,false);
                 }
 
             }
@@ -94,7 +94,7 @@ public class NotifyDialog {
         static public final int ACTION_DETAIL_MULTI=3;
     }
 
-    public NotifyDialog(int action, Context context, DialogCallBack callBack){
+    public NotifyDialog_old(int action, Context context, DialogCallBack callBack){
         builder = new AlertDialog.Builder(context);
         actionType = action;
         theCallBack = callBack;
@@ -175,7 +175,7 @@ public class NotifyDialog {
         onNegativeButtonClickListener = new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                theCallBack.onDialogCancel();
+                theCallBack.onDialogCancel(dialog);
                 if(refreshTimer!=null) {
                     refreshTimer.cancel();
                 }
@@ -184,7 +184,7 @@ public class NotifyDialog {
         onPositiveButtonClickListener = new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                theCallBack.onDialogOk();
+                theCallBack.onDialogOk(dialog);
                 if(refreshTimer!=null) {
                     refreshTimer.cancel();
                 }

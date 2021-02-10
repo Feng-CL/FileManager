@@ -128,20 +128,28 @@ public class LocationPickDialogDelegate extends BaseController
         @Description:传入参数包括上一次的位置，父控制器（主要用于获取布局上下文）以及回调接口
     */
 
-    public LocationPickDialogDelegate(FileHandle lastFileHandle, @NonNull BaseController parentController, LocationPickerCallback callback){
+    public LocationPickDialogDelegate(FileHandle lastFileHandle, @NonNull BaseController parentController, LocationPickerCallback callback) {
         super();
-        this.callback=callback;
-        this.parentController=parentController;
-        svc=this.parentController.getFileManagerCoreService();
+        this.callback = callback;
+        this.parentController = parentController;
+        svc = this.parentController.getFileManagerCoreService();
 
 
-        if(svc!=null) {
+        if (svc != null) {
             if (lastFileHandle != null) {
                 this.currentFileHandle = lastFileHandle;
             } else {
-                this.currentFileHandle=svc.getStorageDirFileHandle();
+                this.currentFileHandle = svc.getStorageDirFileHandle();
             }
         }
+        onCreateDialog();
+    }
+
+    public LocationPickDialogDelegate(Context context,@NonNull Service service,LocationPickerCallback callback){
+        super();
+        this.callback=callback;
+        this.svc=service;
+        this.currentFileHandle=this.svc.getStorageDirFileHandle();
         onCreateDialog();
     }
 

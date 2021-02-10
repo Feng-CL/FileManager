@@ -19,7 +19,7 @@ import androidx.annotation.RequiresApi;
 
 import com.scut.filemanager.R;
 import com.scut.filemanager.ui.protocols.ProgressDialogContentProvider;
-
+import com.scut.filemanager.ui.transaction.Request;
 
 
 public class ProgressDialogDelegate {
@@ -60,7 +60,14 @@ public class ProgressDialogDelegate {
                     break;
                 case UIMessageCode.CLOSE_DIALOG:
                     alertDialog.dismiss();
-                    provider.onDialogClose(true);
+                    provider.onDialogClose(null,true);
+                    break;
+                case UIMessageCode.UPDATE_TITLE:
+                    alertDialog.setTitle((String) msg.obj);
+                    break;
+                default:
+                    super.handleMessage(msg);
+                    break;
             }
         }
     };
@@ -83,6 +90,9 @@ public class ProgressDialogDelegate {
             case ACTION.MOVE:
                 Title=context.getResources().getString(R.string.DialogProgress_move);
                 break;
+            case ACTION.RECEIVE:
+                Title=context.getResources().getString(R.string.DialogProgress_receiving);
+                break;
             default:
                 break;
         }
@@ -96,6 +106,7 @@ public class ProgressDialogDelegate {
         textView_task_desc=linearLayout.findViewById(R.id.textview_progress_task_desc);
         textView_speed_desc=linearLayout.findViewById(R.id.textview_progress_speed_desc);
 
+
         progressBar=linearLayout.findViewById(R.id.progressbar_h);
         progressBar.setMax(provider.getMaxMeasure());
         progressBar.setProgress(0);
@@ -105,35 +116,35 @@ public class ProgressDialogDelegate {
         builder.setPositiveButton("hide", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
-                provider.onDialogHide();
+                provider.onDialogHide(dialogInterface);
             }
         }).setNegativeButton(R.string.dialog_negative_button_text, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
-                provider.onDialogCancel();
+                provider.onDialogCancel(dialogInterface);
             }
         }).setNeutralButton("pause", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
-                provider.onDialogNeutralClicked();
+                provider.onDialogNeutralClicked(dialogInterface);
             }
         });
 
         alertDialog=builder.create();
         alertDialog.setOnShowListener(new DialogInterface.OnShowListener() {
             @Override
-            public void onShow(DialogInterface dialogInterface) {
+            public void onShow(final DialogInterface dialogInterface) {
                 final Button pauseBtn=alertDialog.getButton(DialogInterface.BUTTON_NEUTRAL);
                 View.OnClickListener pauseBtnListener=new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
                         if(provider.isPause()){
                             pauseBtn.setText("pause");
-                            provider.onDialogNeutralClicked();
+                            provider.onDialogNeutralClicked(dialogInterface);
                         }
                         else {
                             pauseBtn.setText("resume");
-                            provider.onDialogNeutralClicked();
+                            provider.onDialogNeutralClicked(dialogInterface);
                         }
                     }
                 };
@@ -149,16 +160,16 @@ public class ProgressDialogDelegate {
         alertDialog.show();
     }
 
-    public void closeAndAlertUser(Message msg){
-        this.mHandler.sendMessage(msg);
-        alertDialog.dismiss();
-    }
 
+    /**
+     * 考虑到可以动态调整title内容，ACTION类其实是一个多余的操作。
+     */
     public static final class ACTION{
         public static final int COPY=0;
         public static final int MOVE=1;
         public static final int SEND=2;
         public static final int DELETE=3;
+        public static final int RECEIVE=4;
     }
 
     public static final class UIMessageCode{
@@ -167,8 +178,51 @@ public class ProgressDialogDelegate {
         public static final int UPDATE_SPEED_DESC=3;
         public static final int POP_NOTIFY_DIALOG=4; //obj 为String[] 0 为title 1为信息
         public static final int CLOSE_DIALOG=5;
+        public static final int UPDATE_TITLE=6;
     }
 
+    public void update_progress_bar(int progress_value,String desc){
+        this.mHandler.sendMessage(
+                Request.obtain(UIMessageCode.UPDATE_PROGRESS_BAR,progress_value,desc)
+        );
+    }
+
+    public void update_task_description(String task_desc){
+        this.mHandler.sendMessage(
+                Request.obtain(UIMessageCode.UPDATE_TASK_DESC,task_desc)
+        );
+    }
+
+    public void update_speed_description(String speed_desc){
+        this.mHandler.sendMessage(
+                Request.obtain(UIMessageCode.UPDATE_SPEED_DESC,speed_desc)
+        );
+    }
+
+    public void update_title(String title){
+        this.mHandler.sendMessage(
+                Request.obtain(UIMessageCode.UPDATE_TITLE,title )
+        );
+    }
+
+    public void pop_notify_dialog(String title,String message){
+        String[] tokens=new String[2];
+        tokens[0]=title;    tokens[1]=message;
+        this.mHandler.sendMessage(
+                Request.obtain(UIMessageCode.POP_NOTIFY_DIALOG,tokens)
+        );
+    }
+
+    public void closeDialog(){
+        this.mHandler.sendEmptyMessage(
+                UIMessageCode.CLOSE_DIALOG
+        );
+    }
+
+    /**
+     * 旧时API方法，现在不建议使用
+     * @return
+     */
     public Handler getHandler(){
         return mHandler;
     }

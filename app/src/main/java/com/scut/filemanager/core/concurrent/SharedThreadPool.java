@@ -12,13 +12,14 @@ a simple thread pool
  */
 public class SharedThreadPool {
     //three level pool
-    static ExecutorService executor1,executor2,executor3;
+    static ExecutorService executor1,executor2,executor3,cachedExecutor;
     static SharedThreadPool sharedThreadPool;
 
     private SharedThreadPool(){
         executor1= Executors.newFixedThreadPool(3);
         executor2=Executors.newFixedThreadPool(2);
         executor3=Executors.newSingleThreadExecutor();
+        cachedExecutor=Executors.newCachedThreadPool();
     }
 
     static public SharedThreadPool getInstance(){
@@ -29,7 +30,8 @@ public class SharedThreadPool {
     }
 
     public enum PRIORITY{
-        HIGH,MEDIUM,LOW
+        HIGH,MEDIUM,LOW,
+        CACHED
     }
 
     /*
@@ -47,6 +49,9 @@ public class SharedThreadPool {
                 break;
             case HIGH:
                 executor1.execute(task);
+                break;
+            case CACHED:
+                cachedExecutor.execute(task);
                 break;
             default:
                 break;
