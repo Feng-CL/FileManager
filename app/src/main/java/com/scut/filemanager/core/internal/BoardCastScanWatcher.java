@@ -35,6 +35,7 @@ abstract public class BoardCastScanWatcher extends AbstractTaskMonitor<InetAddre
         }
         else {
             cacheTable.put(packet.ip, new ArrayDeque<InquirePacket>());
+            cacheTable.get(packet.ip).add(packet);
         }
     }
 

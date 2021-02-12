@@ -1,11 +1,13 @@
 package com.scut.filemanager.core.net;
 
+import java.io.Serializable;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.Queue;
 
 //元数据封装类
-public class FileNodeWrapper {
+public class FileNodeWrapper implements Serializable {
     private FileNode tree=null;
     private String rootPath="";
     private long totalSize=0L;
@@ -51,7 +53,7 @@ public class FileNodeWrapper {
         Iterator<FileNode> _iterator=new Iterator<FileNode>() {
 
             FileNode current=FileNodeWrapper.this.getFileNodeTree();
-            Queue<FileNode> queue;
+            Queue<FileNode> queue=new LinkedList<>();
             Iterator<FileNode> fileNodeIterator;//implemented by LinkedHashSet's iterator
             @Override
             public boolean hasNext() {
@@ -66,7 +68,9 @@ public class FileNodeWrapper {
                         fileNodeIterator=current.children.iterator();
                         if(fileNodeIterator.hasNext()){
                             current=fileNodeIterator.next();
-                            queue.add(current);
+                            if(current.hasChildren()) {
+                                queue.add(current);
+                            }
                         }
                         else {
                             current=null;
@@ -79,12 +83,18 @@ public class FileNodeWrapper {
                 else{
                     if(fileNodeIterator.hasNext()){
                         current=fileNodeIterator.next();
-                        queue.add(current);
+                        if(current.hasChildren()) {
+                            queue.add(current);
+                        }
                     }
                     else if(!queue.isEmpty()){
                         current=queue.poll();
                         if(current.hasChildren()){
                             fileNodeIterator=current.children.iterator();
+                            current=fileNodeIterator.next();
+                        }
+                        else {
+                            current=null; //2021/2/11 added by Feng-CL
                         }
                     }
                     else {

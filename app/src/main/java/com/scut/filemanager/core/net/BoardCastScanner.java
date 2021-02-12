@@ -66,6 +66,7 @@ public class BoardCastScanner implements Runnable {
                 byte[] subBytes=Arrays.copyOf(rcvPacket.getData(),rcvPacket.getLength());
                 InquirePacket inquirePacketReceived=InquirePacket.decodeToThis(subBytes);
                 inquirePacketReceived.ip=rcvPacket.getAddress();
+                //Log.d("boardcastScanner",String.valueOf(inquirePacketReceived.what));
                 //空心跳包由onProgress处理，控制信号包压入缓冲表
                 watcher.onProgress(inquirePacketReceived.ip,inquirePacketReceived);
 

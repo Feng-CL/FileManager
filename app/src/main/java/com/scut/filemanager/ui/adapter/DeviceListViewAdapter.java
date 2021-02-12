@@ -27,8 +27,12 @@ public class DeviceListViewAdapter extends BaseAdapter {
     //inflater
     private LayoutInflater inflater;
 
-    public DeviceListViewAdapter(@NonNull LayoutInflater layoutInflater){
+    //event listener
+    private View.OnClickListener checkBoxListener;
+
+    public DeviceListViewAdapter(@NonNull LayoutInflater layoutInflater, @NonNull View.OnClickListener checkBoxListener){
         inflater=layoutInflater;
+        this.checkBoxListener=checkBoxListener;
     }
 
     @Override
@@ -78,7 +82,8 @@ public class DeviceListViewAdapter extends BaseAdapter {
 
         CheckBox checkBox=convertView.findViewById(R.id.checkbox_for_device);
         checkBox.setChecked(item.isSelected);
-
+        checkBox.setOnClickListener(this.checkBoxListener);
+        checkBox.setTag(item.id);
         return convertView;
 
     }
@@ -105,6 +110,11 @@ public class DeviceListViewAdapter extends BaseAdapter {
         }
     }
 
+    synchronized public void mark(int id){
+        ItemData item=this.get(id);
+        item.isSelected=!item.isSelected;
+    }
+
     synchronized public void clearItems(){
         table.clear();
     }
@@ -117,6 +127,16 @@ public class DeviceListViewAdapter extends BaseAdapter {
            }
         }
         return false;
+    }
+
+    private ItemData get(int id){
+        for (ItemData data :
+                table) {
+            if (id == data.id){
+                return data;
+            }
+        }
+        return null;
     }
 
     public InetAddress getSelectedTarget() throws UnknownHostException {

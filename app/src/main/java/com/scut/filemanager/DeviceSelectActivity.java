@@ -30,7 +30,9 @@ import java.util.TimerTask;
 /*
 @Description: 该活动主要用于处理选择发送设备的，把选择的索引发送给原来的activity
  */
-public class DeviceSelectActivity extends AppCompatActivity  {
+public class DeviceSelectActivity extends AppCompatActivity
+implements View.OnClickListener
+{
 
     //UI outlets:
     Toolbar toolbar;
@@ -65,6 +67,7 @@ public class DeviceSelectActivity extends AppCompatActivity  {
                case UIMessageCode.UPDATE_TOOLBAR_SUBTITLE_TO_FINISH:
                    if(refreshTimer!=null) {
                        refreshTimer.cancel();
+                       refreshTimer=null;
                    }
                    toolbar.setSubtitle("finish scan");
                    break;
@@ -80,7 +83,7 @@ public class DeviceSelectActivity extends AppCompatActivity  {
 //                                   itemInMsg.id
 //                           ),
 //                           Toast.LENGTH_SHORT).show();
-                    if(adapter.contain(itemInMsg)){
+                    if(!adapter.contain(itemInMsg)){
                         adapter.addItems(itemInMsg);
                         adapter.notifyDataSetChanged();
                     }
@@ -160,7 +163,7 @@ public class DeviceSelectActivity extends AppCompatActivity  {
             }
         });
 
-        adapter=new DeviceListViewAdapter(getLayoutInflater());
+        adapter=new DeviceListViewAdapter(getLayoutInflater(),this);
         this.listView.setAdapter(adapter);
        // setTitle("Scanning");
     }
@@ -185,6 +188,12 @@ public class DeviceSelectActivity extends AppCompatActivity  {
         super.onCreateOptionsMenu(menu);
         getMenuInflater().inflate(R.menu.menu_lan_sender,menu);
         return true;
+    }
+
+    @Override
+    public void onClick(View v) {
+        int tag= (int) v.getTag();
+        adapter.mark(tag);
     }
 
     public static class UIMessageCode{

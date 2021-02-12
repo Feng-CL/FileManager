@@ -75,24 +75,26 @@ public class FileTransferTransactionMiddleWare extends AbstractDialogCallBack
     /**
      * 为了将此类公用，分出了接受和发送的代理执行方法。
      */
-    public void executeReceiveTask(final InquirePacket packet, Service service){
+    public void executeReceiveTask(InquirePacket packet, Service service){
+        final InquirePacket packet_copy=packet;
+        address=packet.ip;
         LocationPickDialogDelegate locationPicker=new LocationPickDialogDelegate(this.context, service, new LocationPickerCallback() {
             @Override
             public void onLocationPicked(FileHandle location) {
+                netService.acceptAndSendACK(address);
                 delegate=new ProgressDialogDelegate(context,FileTransferTransactionMiddleWare.this,ProgressDialogDelegate.ACTION.RECEIVE);
                 delegate.showDialog();
-                FileNodeWrapper wrapper_in_packet= (FileNodeWrapper) packet.obj;
+                FileNodeWrapper wrapper_in_packet= (FileNodeWrapper) packet_copy.obj;
                 wrapper_in_packet.setRootPath(location.getAbsolutePathName());
                 //多余操作
-                packet.obj=wrapper_in_packet;
-                netService.receive(packet,monitor);
+                packet_copy.obj=wrapper_in_packet;
+                netService.receive(packet_copy,monitor);
             }
 
             @Override
             public void onLocationPickerDialogCancel(FileHandle currentLocation, boolean whetherNeedToUpdateView) {
                 //send a refuse packet back
-                netService.refuse(packet.ip);
-
+                netService.refuseAndSendNACK(address);
             }
 
             @Override
@@ -120,6 +122,7 @@ public class FileTransferTransactionMiddleWare extends AbstractDialogCallBack
 
             }
         });
+        locationPicker.showDialog();
     }
 
     public void executeSendTask(InetAddress target, List<FileHandle> listOfFiles){
@@ -253,28 +256,20 @@ public class FileTransferTransactionMiddleWare extends AbstractDialogCallBack
 
         @Override
         public void receiveMessage(int code, String msg) {
-            String notice;
+            String notice="";
+            if(msg!=null) {
+                notice=msg;
+            }
+
             switch (code){
                 case NetService.MessageCode.NOTICE_CONNECT_DECLINED:
-                    notice="connection request has been declined";
-                    break;
                 case NetService.MessageCode.ERR_FILE_NOT_FOUND:
-                    notice="file not found";
-                    break;
                 case NetService.MessageCode.ERR_INTERRUPT_EXCEPTION:
-                    notice="interrupt exception";
-                    break;
                 case NetService.MessageCode.ERR_CONNECTION_TIMEOUT:
-                    notice="connection timeout";
-                    break;
                 case NetService.MessageCode.ERR_IO_EXCEPTION:
-                    notice="Input/Output exception";
-                    break;
                 case NetService.MessageCode.ERR_SOCKET_EXCEPTION:
-                    notice="socket error";
-                    break;
                 case NetService.MessageCode.ERR_UNKNOWN:
-                    notice="unknown error";
+                    delegate.pop_notify_dialog(String.valueOf(code),notice);
                     break;
                 case NetService.MessageCode.NOTICE_CONNECTED:
                     delegate.update_task_description("connection established");
@@ -290,6 +285,8 @@ public class FileTransferTransactionMiddleWare extends AbstractDialogCallBack
             }
 
         }
+
+
 
         @Override
         public void sendCancelSignal(int slot) {

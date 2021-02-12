@@ -38,6 +38,7 @@ import java.net.UnknownHostException;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Queue;
 
 //该类是启动和控制服务的起点，
 public class NetService extends BoardCastScanWatcher {
@@ -221,9 +222,14 @@ public class NetService extends BoardCastScanWatcher {
         client.startClient();
     }
 
-    public void refuse(InetAddress target){
-        RefuseTask refuseTask=new RefuseTask(target);
+    public void refuseAndSendNACK(InetAddress target){
+        ACKTask refuseTask=new ACKTask(target,false);
         SharedThreadPool.getInstance().executeTask(refuseTask,SharedThreadPool.PRIORITY.MEDIUM);
+    }
+
+    public void acceptAndSendACK(InetAddress target){
+        ACKTask acceptTask=new ACKTask(target,true);
+        SharedThreadPool.getInstance().executeTask(acceptTask,SharedThreadPool.PRIORITY.HIGH);
     }
 
 
@@ -260,13 +266,15 @@ public class NetService extends BoardCastScanWatcher {
 
         switch (value.what) {
             case InquirePacket.MessageCode.IP_NULL:
-                //id 为ip的hashcode
-                DeviceListViewAdapter.ItemData itemData = new DeviceListViewAdapter.ItemData(key.hashCode());
-                itemData.DeviceIp = key.getHostAddress();
-                itemData.DeviceName = value.description;
-                deviceSelectActivity.mHandler.sendMessage(
-                        Request.obtain(DeviceSelectActivity.UIMessageCode.NOTIFY_DATASET_CHANGE, itemData)
-                );
+                if(deviceSelectActivity!=null){
+                    //id 为ip的hashcode
+                    DeviceListViewAdapter.ItemData itemData = new DeviceListViewAdapter.ItemData(key.hashCode());
+                    itemData.DeviceIp = key.getHostAddress();
+                    itemData.DeviceName = value.description;
+                    deviceSelectActivity.mHandler.sendMessage(
+                            Request.obtain(DeviceSelectActivity.UIMessageCode.NOTIFY_DATASET_CHANGE, itemData)
+                    );
+                }
                 break;
             case InquirePacket.MessageCode.IP_FILES_AND_FOLDERS:
                 //invoke ui dialog
@@ -337,12 +345,14 @@ public class NetService extends BoardCastScanWatcher {
         static DatagramSocket udpSocket=null;
     }
 
-    private class RefuseTask implements Runnable{
+    private class ACKTask implements Runnable{
 
         private InetAddress target;
+        private boolean ack;
 
-        RefuseTask(InetAddress target){
+        ACKTask(InetAddress target,boolean ack){
             this.target=target;
+            this.ack=ack;
         }
 
         @Override
@@ -352,10 +362,17 @@ public class NetService extends BoardCastScanWatcher {
                 if(InnerShare.udpSocket==null) {
                     InnerShare.udpSocket = new DatagramSocket();
                 }
-                InquirePacket inquirePacket=new InquirePacket(InquirePacket.MessageCode.N_ACK_IP_FILES_AND_FOLDER);
+                InquirePacket inquirePacket;
+                if(!ack) {
+                    inquirePacket = new InquirePacket(InquirePacket.MessageCode.N_ACK_IP_FILES_AND_FOLDER);
+                }
+                else{
+                    inquirePacket=new InquirePacket(InquirePacket.MessageCode.ACK_IP_FILES_AND_FOLDERS);
+                }
                 byte[] buf=inquirePacket.getBytes();
                 DatagramPacket pkt=new DatagramPacket(buf,buf.length,target,FMGlobal.BoardCastReceivePort);
                 InnerShare.udpSocket.send(pkt);
+                Log.d("ACKTask","send ACK");
             }catch (IOException e) {
                 Log.e("RefuseTask",e.getMessage());
             }finally {
@@ -423,8 +440,10 @@ public class NetService extends BoardCastScanWatcher {
                     }
 
                     //prepare to build up connection, respond=1;
+                    monitor.receiveMessage(MessageCode.NOTICE_CONNECTING,null);
                     Socket socket= procedure_connect_to_target();
                     if(socket!=null){
+                        monitor.receiveMessage(MessageCode.NOTICE_CONNECTED,null);
                         if(inquirePacket.obj instanceof FileNodeWrapper){
                             FileNodeWrapper wrapper= (FileNodeWrapper) inquirePacket.obj;
                             boolean process_result=procedure_transmission(socket.getOutputStream(),wrapper);
@@ -443,6 +462,7 @@ public class NetService extends BoardCastScanWatcher {
                         }
                         socket.getOutputStream().flush();
                         socket.close();
+                        Log.d("sendFilesTask", "run: on Finished");
                         monitor.onFinished();  //Finish point
                     }
 
@@ -489,16 +509,24 @@ public class NetService extends BoardCastScanWatcher {
 
 
         private short waitForACK(InetAddress ip){
-            InquirePacket inquirePacketFromIp=NetService.this.cacheTable.get(ip).poll();
+            Queue<InquirePacket> queue= NetService.this.cacheTable.get(ip);
+            InquirePacket inquirePacketFromIp=null;
+            if(queue!=null) {
+                Log.d("WaitForACK","queue is NonNull");
+                inquirePacketFromIp = queue.poll();
+            }
             if(inquirePacketFromIp==null){
+                Log.d("WaitForACK","poll() is null");
                 return 0;
             }
             else {
                 if (inquirePacketFromIp.what == InquirePacket.MessageCode.ACK_IP_FILES_AND_FOLDERS) {
+                    Log.d("WaitForACK","return 1");
                     return 1;
                 } else if (inquirePacketFromIp.what == InquirePacket.MessageCode.N_ACK_IP_FILES_AND_FOLDER) {
                     return -1;
                 } else {
+                    Log.d("WaitForACK","return 0");
                     return 0;
                 }
             }
@@ -509,24 +537,23 @@ public class NetService extends BoardCastScanWatcher {
          * @return
          */
         private Socket procedure_connect_to_target() throws InterruptedException {
-            if(connectionAcceptLooper!=null) {
-                return connectionAcceptLooper.socketAccepted;
-            }
-            else{
-                connectionAcceptLooper=new ListenerAcceptLoop(monitor,InnerShare.udpSocketSemaphore);
-                SharedThreadPool.getInstance().executeTask(connectionAcceptLooper,SharedThreadPool.PRIORITY.CACHED);
-                while(connectionAcceptLooper.socketAccepted==null){
+            if (connectionAcceptLooper == null) {
+                connectionAcceptLooper = new ListenerAcceptLoop(monitor, InnerShare.udpSocketSemaphore);
+                SharedThreadPool.getInstance().executeTask(connectionAcceptLooper, SharedThreadPool.PRIORITY.CACHED);
+                while (connectionAcceptLooper.socketAccepted == null) {
+                 //   Log.d("waiting for client", "go to sleep");
                     Thread.sleep(500);
                 }
-                return connectionAcceptLooper.socketAccepted;
+                Log.d("connecting:", "socket accepted");
             }
+            return connectionAcceptLooper.socketAccepted;
         }
 
         private boolean procedure_transmission(OutputStream out_stream,FileNodeWrapper wrapper){
             monitor.receiveMessage(MessageCode.NOTICE_TRANSMITTING,null);
             monitor.onProgress("totalSize",wrapper.getTotalSize());
             Iterator<FileNode> iterator=wrapper.iterator();
-            BufferedOutputStream bufferedOutputStream=new BufferedOutputStream(out_stream);
+            //BufferedOutputStream bufferedOutputStream=new BufferedOutputStream(out_stream);
             final int blockSize=4*1024*1024;
             byte[] buffer=new byte[blockSize];
             long fileSize=0L;
@@ -544,26 +571,32 @@ public class NetService extends BoardCastScanWatcher {
                             fileSize = handle.Size();
 
                             long blockCount = fileSize / blockSize;
-                            int tailLength = (int) (fileSize % blockCount);
+                            int tailLength = (int) (fileSize % blockSize);
                             long blockOfTransferred = 0L;
                             while (blockOfTransferred < blockCount) {
                                 bufferedInputStream.read(buffer);
-                                bufferedOutputStream.write(buffer);
+                                out_stream.write(buffer);
+                                //out_stream.flush();
+                                //bufferedOutputStream.flush();
                                 bytesOfTransferred += blockSize;
                                 blockOfTransferred++;
+                                Log.d("sending files", "procedure_transmission: byteOfTransferred: "+String.valueOf(bytesOfTransferred));
                                 monitor.onSubProgress(0,handle.getAbsolutePathName(), bytesOfTransferred);
                             }
                             //transfer tail bytes
                             if (tailLength > 0) {
                                 bufferedInputStream.read(buffer, 0, tailLength);
-                                bufferedOutputStream.write(buffer, 0, tailLength);
+                                out_stream.write(buffer, 0, tailLength);
+                                Log.d("sending files'tail", "procedure_transmission: byteOfTransferred");
+                                out_stream.flush();
                                 bytesOfTransferred += tailLength;
                                 monitor.onSubProgress(0,handle.getAbsolutePathName(), bytesOfTransferred);
                             }
 
                             fileInputStream.close();
                             bufferedInputStream.close();
-                            return true;
+                            //Log.d("send files task", "procedure_transmission: finished");
+                            //return true;
 
                         } catch (FileNotFoundException e) {
                             monitor.receiveMessage(MessageCode.ERR_FILE_NOT_FOUND, e.getMessage());
@@ -615,6 +648,7 @@ public class NetService extends BoardCastScanWatcher {
         public void run() {
             while(!terminateSignal&&clientCount!=0){
                 try {
+                    Log.d("listener looper", "run: server is waiting()");
                     socketAccepted=serverSocket.accept();
                     clientCount--;
                 }

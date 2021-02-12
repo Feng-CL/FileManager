@@ -76,6 +76,7 @@ public class MainActivity extends AppCompatActivity
 
                         @Override
                         public void onDialogClose(DialogInterface dialog, boolean updateView) {
+                            controller.netService.refuseAndSendNACK(packet.ip);
                             dialog.cancel();
                         }
                     }, MainActivity.this.getResources().getString(R.string.dialogTitle_receiveFiles), notification);

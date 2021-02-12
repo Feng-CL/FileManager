@@ -155,7 +155,7 @@ public class LocationPickDialogDelegate extends BaseController
 
     public void onCreateDialog() {
 
-        AlertDialog.Builder builder=new AlertDialog.Builder(getFileManagerCoreService().getContext());
+        AlertDialog.Builder builder=new AlertDialog.Builder(svc.getContext());
 
         //set up dialog title and buttons
         builder.setTitle(R.string.dialog_locationPicker_title);
@@ -180,7 +180,7 @@ public class LocationPickDialogDelegate extends BaseController
 
         //set up dialog custom view ------------------------------------------------------------------------------
 
-        viewContainer= (LinearLayout) getFileManagerCoreService().getContext().getLayoutInflater()
+        viewContainer= (LinearLayout) this.svc.getContext().getLayoutInflater()
                 .inflate(R.layout.dialog_select_location,null);
         builder.setView(viewContainer);
         listView=viewContainer.findViewById(R.id.listview_for_selecting_folders);
@@ -212,7 +212,7 @@ public class LocationPickDialogDelegate extends BaseController
         //传入可变列表
         List<FileHandle> ls=FMArrays.asList(list_of_files);
 
-        arrayAdapter= new ArrayAdapter<>(this.getFileManagerCoreService().getContext(),
+        arrayAdapter= new ArrayAdapter<>(this.svc.getContext(),
                 R.layout.dialog_loc_sel_listview_item,
                 R.id.textview_item_name, ls
         );
@@ -241,7 +241,7 @@ public class LocationPickDialogDelegate extends BaseController
 
     @Override
     public Context getContext() {
-        return getFileManagerCoreService().getContext();
+        return svc.getContext();
     }
 
     public Handler getHandler() {
@@ -250,7 +250,7 @@ public class LocationPickDialogDelegate extends BaseController
 
 
     public Service getFileManagerCoreService() {
-        return parentController.getFileManagerCoreService();
+        return svc;
     }
 
     /*

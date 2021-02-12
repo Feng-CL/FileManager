@@ -32,7 +32,6 @@ public class OnlineBoardCaster implements Runnable {
 
 
     private OnlineBoardCaster(NetService netService)  {
-        String deviceName=this.getClass().getName();
         try {
             InetAddress boardcastAddr=InetAddress.getByName("255.255.255.255");
             alivePacket = new DatagramPacket(sndBuf,0,boardcastAddr,33720 );
@@ -42,6 +41,7 @@ public class OnlineBoardCaster implements Runnable {
             if(!udpSocket.getBroadcast()){
                 statusCode=OnlineBoardCaster.SO_MULTICAST_DISABLED;
             }
+            statusCode=OnlineBoardCaster.NORMAL;
         }
         catch (UnknownHostException | SocketException ex){
             statusCode=OnlineBoardCaster.STOP;
@@ -73,7 +73,11 @@ public class OnlineBoardCaster implements Runnable {
 
     @Override
     public void run() {
-        statusCode=OnlineBoardCaster.NORMAL;
+
+        if(statusCode!=OnlineBoardCaster.NORMAL){
+            return;
+        }
+
         while(!stop){
             try {
                 synchronized (alivePacket) {

@@ -5,13 +5,14 @@ import androidx.annotation.NonNull;
 import com.scut.filemanager.core.FileHandle;
 
 
+import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-public class FileNode {
+public class FileNode implements Serializable {
     public LinkedHashSet<FileNode> children =null; //之所以只是使用Set是因为文件名具有唯一性，不可以让列表中出现两个文件
     public String name;
     public FileNode parent=null;
@@ -44,9 +45,9 @@ public class FileNode {
      */
     public long calculateSize(){
         long size=this.size;
-        for (FileNode node :
+        for (FileNode child :
                 children) {
-            size += node.size;
+            size += child.calculateSize();
         }
         return size;
     }
@@ -74,7 +75,6 @@ public class FileNode {
         FileNode node;
         if(fileHandles==null){
             node=new FileNode(false);
-            node.size=0L;
         }
         else{
             node=new FileNode(true);
@@ -82,9 +82,9 @@ public class FileNode {
                     fileHandles) {
                 node.children.add(createNodeFromArray(h.getName(),h.Size(), h.listFiles(),node ));
             }
-            node.size=size;
         }
         node.name=name;
+        node.size=size;
         node.parent=parent;
         return node;
     }
@@ -94,7 +94,6 @@ public class FileNode {
         FileNode node;
         if(handleArray==null){
             node=new FileNode(false);
-            node.size=0L;
         }
         else{
             node=new FileNode(true);
@@ -102,8 +101,8 @@ public class FileNode {
                     handleArray) {
                 node.children.add(createNodeFromArray(h.getName(), h.Size(),h.listFiles(),node));
             }
-            node.size=size;
         }
+        node.size=size;
         node.parent=parent;
         node.name=name;
         return node;
@@ -111,7 +110,7 @@ public class FileNode {
 
     public String getPath(){
         if(parent==null){
-            return "/"+name;
+            return "";
         }
         else{
             return parent.getPath().concat("/").concat(name);
