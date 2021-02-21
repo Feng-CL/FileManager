@@ -2,6 +2,7 @@ package com.scut.filemanager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.FileProvider;
@@ -12,7 +13,9 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -37,6 +40,7 @@ import com.scut.filemanager.ui.dialog.SingleLineInputDialogDelegate;
 import com.scut.filemanager.ui.protocols.AbstractDialogCallBack;
 import com.scut.filemanager.ui.transaction.FileTransferTransactionMiddleWare;
 import com.scut.filemanager.ui.transaction.MIME_MapTable;
+import com.scut.filemanager.ui.transaction.Request;
 import com.scut.filemanager.util.FMFormatter;
 
 public class MainActivity extends AppCompatActivity
@@ -87,6 +91,7 @@ public class MainActivity extends AppCompatActivity
         }
     };
 
+    @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 //        super.onCreate(savedInstanceState);
@@ -96,9 +101,19 @@ public class MainActivity extends AppCompatActivity
         setContentView(R.layout.activity_main);
         setSupportActionBar((Toolbar)findViewById(R.id.my_toolbar));
 
-        controller=new MainController();
-        boolean result= controller.startService(this);
-        if(result){
+        int CHECK_PERMISSION_STORAGE=getPackageManager().checkPermission(MainActivity.PERMISSION_STORAGE[1],getPackageName());
+        if(CHECK_PERMISSION_STORAGE!= PackageManager.PERMISSION_GRANTED) {
+            this.requestPermissions(MainActivity.PERMISSION_STORAGE, MainActivity.REQUEST_PERMISSION_CODE);
+        }
+        else {
+            this.initialization_process();
+        }
+    }
+
+    private void initialization_process(){
+        controller = new MainController();
+        boolean result = controller.startService(this);
+        if (result) {
             try {
                 controller.startNetService();
             } catch (SocketException e) {
@@ -108,16 +123,14 @@ public class MainActivity extends AppCompatActivity
             try {
                 controller.init();
             } catch (Exception e) {
-                Toast.makeText(this,e.getMessage(),Toast.LENGTH_SHORT)
+                Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT)
                         .show();
             }
-        }
-        else{
-            Toast.makeText(this,controller.getServiceStatus(),Toast.LENGTH_SHORT )
+        } else {
+            Toast.makeText(this, controller.getServiceStatus(), Toast.LENGTH_SHORT)
                     .show();
         }
     }
-
     @Override
     protected void onStart() {
         super.onStart();
@@ -158,8 +171,16 @@ public class MainActivity extends AppCompatActivity
     public void onRequestPermissionsResult(int requestCode,  String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_PERMISSION_CODE) {
+            boolean permission_granted_totally=true;
             for (int i = 0; i < permissions.length; i++) {
                 Log.i("MainActivity", "申请的权限为：" + permissions[i] + ",申请结果：" + grantResults[i]);
+                makeToast("申请的权限为：" + permissions[i] + ",申请结果：" + grantResults[i]);
+                if(grantResults[i]!= PackageManager.PERMISSION_GRANTED) {
+                    permission_granted_totally =false;
+                }
+            }
+            if(permission_granted_totally){
+                this.initialization_process();
             }
         }
     }
@@ -284,5 +305,11 @@ public class MainActivity extends AppCompatActivity
         public static final int INVOKE_RECEIVE_INQUIRY_DIALOG=11;
         public static final int ACTIVITY_CANCELED=20;
         public static final int DEVICE_SELECTED=21;
+    }
+
+    private void makeToast(String toast){
+        this.mHandler.sendMessage(
+                Request.obtain(FMGlobal.MAKE_TOAST,toast)
+        );
     }
 }

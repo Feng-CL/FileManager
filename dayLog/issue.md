@@ -16,6 +16,15 @@
 ### 2021/2/12(Spring festival)
 
 * `$FileNodeWrapper.iterator()`迭代器的next方法可能还有bug,需要拉出来进行单独测试，总进度显示异常，原因是询问时没有调用正确的size方法
+
 * 重命名时的异常闪退问题
+
 * 移动文件时，调用的makeDirectory方法会造成闪退，原因不明。
+
 * 界面设计问题，网络中是否启用发现自己的问题，还有scan方法的实现更改。
+
+  
+
+### 2021/2/21 
+
+* 一个小问题，无法在构建好dialog后，选择并调出键盘，`#InputMethodManager.showSoftInput(View,int)`不起作用，仍然需要了解android的布局渲染机制。

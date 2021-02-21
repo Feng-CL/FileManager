@@ -66,7 +66,7 @@ public class NetService extends BoardCastScanWatcher {
     //function members
     private OnlineBoardCaster caster;
     public BoardCastScanner scanner;
-    private FileReceiverClient server;
+
     private ListenerAcceptLoop connectionAcceptLooper=null;
 
     //reference controller
@@ -319,9 +319,7 @@ public class NetService extends BoardCastScanWatcher {
         this.deviceSelectActivity =null;
     }
 
-    public boolean isScanning(){
-        return this.isScanning;
-    }
+
 
     /**
      * 通知绑定的Activity以MessageEntry的形式

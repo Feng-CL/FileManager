@@ -74,6 +74,7 @@ public class MainController {
         }
         netService.setMainController(this);
         netService.startBoardCaster();
+        netService.startScanner();
     }
 
 

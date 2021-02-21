@@ -6,7 +6,10 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Handler;
 import android.text.InputType;
+import android.util.Log;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -121,16 +124,43 @@ public class SingleLineInputDialogDelegate extends BaseController{
         editText.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT
         ));
-        editText.setHint(R.string.editText_placeholder);
+
+        switch (TYPE){
+            case DialogType.NEW_DIRECTORY:
+                editText.setHint(R.string.editText_placeholder_mkdir);
+                break;
+            case DialogType.NEW_FILE:
+                editText.setHint(R.string.editText_placeholder_newFile);
+                break;
+            default:
+                editText.setHint(R.string.editText_placeholder);
+                break;
+        }
         builder.setView(editText);
 
         dialog=builder.create();
+
     }
 
     public void showDialog(){
         if(dialog!=null){
             dialog.show();
         }
+    }
+
+    public void setEditTextInitialContent(String content){
+        editText.setText(content);
+    }
+
+    public void setSelectedTextAndCallInputMethod(int start, int end){
+        //Log.d("InputDialog", "setSelectedTextAndCallInputMethod: "+editText.isFocused());
+        editText.setSelection(start,end);
+        //Log.d("InputDialog", "setSelectedTextAndCallInputMethod: "+editText.isFocused());
+        //editText.requestFocus();
+//        InputMethodManager inputMethodManager= (InputMethodManager) editText.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+//        if(inputMethodManager!=null){
+//            Log.d("InputDialog", "setSelectedTextAndCallInputMethod: "+inputMethodManager.showSoftInput(editText,InputMethodManager.SHOW_FORCED));
+//        }
     }
 
     @Override

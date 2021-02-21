@@ -12,7 +12,7 @@
         android:layout_height="?attr/actionBarSize"
         android:elevation="4dp"
         app:title="LanSender"
-        app:subtitle="scanning"
+
         app:navigationIcon="@drawable/ic_black_nav_back"
         android:background="@color/ilovethiscolor"
         android:theme="@style/ThemeOverlay.AppCompat.ActionBar"

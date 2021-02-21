@@ -89,15 +89,13 @@ public class FileNodeWrapper implements Serializable {
                     }
                     else if(!queue.isEmpty()){
                         current=queue.poll();
-                        if(current.hasChildren()){
-                            fileNodeIterator=current.children.iterator();
-                            current=fileNodeIterator.next();
-                        }
-                        else {
-                            current=null; //2021/2/11 added by Feng-CL
+                        fileNodeIterator=current.children.iterator();
+                        current=fileNodeIterator.next();
+                        if(current.hasChildren()) {
+                            queue.add(current);
                         }
                     }
-                    else {
+                    else {  //queue is empty and fileNodeIterator has no children
                         current=null;
                     }
                 }

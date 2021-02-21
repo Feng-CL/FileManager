@@ -45,9 +45,11 @@ public class FileNode implements Serializable {
      */
     public long calculateSize(){
         long size=this.size;
-        for (FileNode child :
-                children) {
-            size += child.calculateSize();
+        if(children!=null) {
+            for (FileNode child :
+                    children) {
+                size += child.calculateSize();
+            }
         }
         return size;
     }

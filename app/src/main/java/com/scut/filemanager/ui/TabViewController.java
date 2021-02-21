@@ -628,6 +628,18 @@ public class TabViewController extends BaseController implements AdapterView.OnI
                 case 4: {
                     operation_state = OPERATION_STATE.RENAME;
                     SingleLineInputDialogDelegate dialogDelegate = new SingleLineInputDialogDelegate(SingleLineInputDialogDelegate.DialogType.RENAME, TabViewController.this, TabViewController.this);
+                    FileHandle selectedFile=adapter.getSelectedFile();
+                    if(selectedFile!=null){
+                        String filename=selectedFile.getName();
+                        dialogDelegate.setEditTextInitialContent(filename);
+                        int end=filename.lastIndexOf('.');
+                        if(end==-1||end==0){
+                            dialogDelegate.setSelectedTextAndCallInputMethod(0,filename.length());
+                        }
+                        else{
+                            dialogDelegate.setSelectedTextAndCallInputMethod(0,end);
+                        }
+                    }
                     dialogDelegate.showDialog();
                 }
                     break;

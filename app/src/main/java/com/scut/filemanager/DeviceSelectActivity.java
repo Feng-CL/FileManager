@@ -46,7 +46,7 @@ implements View.OnClickListener
     NetService net_service;
 
     //state maintain
-    //boolean isScanning=false;
+    private boolean device_list_change_lock =true;
 
     //ui refresh handler
     public Handler mHandler=new Handler(Looper.getMainLooper()){
@@ -83,7 +83,7 @@ implements View.OnClickListener
 //                                   itemInMsg.id
 //                           ),
 //                           Toast.LENGTH_SHORT).show();
-                    if(!adapter.contain(itemInMsg)){
+                    if(!adapter.contain(itemInMsg)&&!isDeviceListLocked()){
                         adapter.addItems(itemInMsg);
                         adapter.notifyDataSetChanged();
                     }
@@ -181,6 +181,7 @@ implements View.OnClickListener
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        this.net_service.unBindDeviceSelectActivity();
     }
 
     @Override
@@ -221,16 +222,17 @@ implements View.OnClickListener
             case R.id.menu_item_lan_scan:
 
                     //这里的scan按钮调用的函数需要修改一下，扫描是时刻进行的, 根据需要过滤各类包
-                    if(!net_service.isScanning()) {
+                    if(isDeviceListLocked()){
+                        lockDeviceListRefresh(false);
                         mHandler.sendEmptyMessage(UIMessageCode.UPDATE_TOOLBAR_SUBTITLE_TO_SCANNING);
                         item.setTitle("stop");
-                        net_service.startScanner();
+                        adapter.clearItems();
                         Toast.makeText(this,"start scanning",Toast.LENGTH_SHORT)
                                 .show();
                     }
                     else{
                         mHandler.sendEmptyMessage(UIMessageCode.UPDATE_TOOLBAR_SUBTITLE_TO_FINISH);
-                        net_service.stopScanning();
+                        lockDeviceListRefresh(true);
                         Toast.makeText(this,String.valueOf(net_service.scanner.isScanning()),Toast.LENGTH_SHORT)
                         .show();
                         item.setTitle("scan");
@@ -265,5 +267,13 @@ implements View.OnClickListener
                 Request.obtain(FMGlobal.MAKE_TOAST,
                         toast_text  )
         );
+    }
+
+    private void lockDeviceListRefresh(@NonNull boolean lock){
+        this.device_list_change_lock=lock;
+    }
+
+    private boolean isDeviceListLocked(){
+        return this.device_list_change_lock;
     }
 }
