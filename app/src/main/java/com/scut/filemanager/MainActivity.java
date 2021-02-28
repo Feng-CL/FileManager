@@ -79,10 +79,11 @@ public class MainActivity extends AppCompatActivity
                         }
 
                         @Override
-                        public void onDialogClose(DialogInterface dialog, boolean updateView) {
+                        public void onDialogCancel(DialogInterface dialog) {
                             controller.netService.refuseAndSendNACK(packet.ip);
                             dialog.cancel();
                         }
+
                     }, MainActivity.this.getResources().getString(R.string.dialogTitle_receiveFiles), notification);
                     delegate.show();
                 default:
@@ -116,6 +117,8 @@ public class MainActivity extends AppCompatActivity
         if (result) {
             try {
                 controller.startNetService();
+                registerReceiver(controller.netService.getWiFiConnectChangeBroadCastReceiver(),
+                        controller.netService.getWiFiConnectChangeBroadCastReceiver().getIntentFilter());
             } catch (SocketException e) {
                 e.printStackTrace();
             }
@@ -165,7 +168,7 @@ public class MainActivity extends AppCompatActivity
     };
 
     private static int REQUEST_PERMISSION_CODE = 1;
-    private static android.view.Menu _menu;
+
 
     @Override
     public void onRequestPermissionsResult(int requestCode,  String[] permissions, int[] grantResults) {

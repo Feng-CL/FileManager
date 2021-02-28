@@ -200,7 +200,7 @@ public class FileTransferTransactionMiddleWare extends AbstractDialogCallBack
             super.onStart();
             MessagesStack=new Stack<>();
             StringBuilder task_desc=new StringBuilder();
-            start= SystemClock.currentThreadTimeMillis();
+            start= SystemClock.elapsedRealtime();
             if(taskType==TaskType.RECEIVE){
                 task_desc.append("receiving files from "+address.getHostAddress());
             }
@@ -239,7 +239,7 @@ public class FileTransferTransactionMiddleWare extends AbstractDialogCallBack
         @Override
         public void onSubProgress(int taskId, String key, Long value) {
             str_builder_task_desc.setLength(0);
-            long now=SystemClock.currentThreadTimeMillis();
+            long now=SystemClock.elapsedRealtime();
             if(taskType==TaskType.RECEIVE){
                 str_builder_task_desc.append("receiving files from ").append(address.getHostAddress()).append(" to ")
                         .append(key);
@@ -252,6 +252,7 @@ public class FileTransferTransactionMiddleWare extends AbstractDialogCallBack
             delegate.update_task_description(str_builder_task_desc.toString());
             delegate.update_progress_bar(calculateProgressi(value,numberOfBytesNeedToCopy),progress_desc);
             delegate.update_speed_description(speed_desc);
+            delegate.update_time_ticking(FMFormatter.timeDescriptionConvert_ShortStyle_l2s(now-start));
         }
 
         @Override

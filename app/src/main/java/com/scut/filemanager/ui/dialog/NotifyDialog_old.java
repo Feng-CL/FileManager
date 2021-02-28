@@ -6,7 +6,6 @@ import android.content.DialogInterface;
 import android.os.Looper;
 import android.os.Handler;
 import android.os.Message;
-import android.util.Log;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
@@ -14,9 +13,6 @@ import androidx.annotation.NonNull;
 
 import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
-import com.scut.filemanager.core.Service;
-import com.scut.filemanager.ui.TabViewController;
-import com.scut.filemanager.ui.adapter.SimpleListViewItemAssembler;
 import com.scut.filemanager.ui.protocols.DialogCallBack;
 import com.scut.filemanager.ui.transaction.Request;
 import com.scut.filemanager.util.FMFormatter;
@@ -27,7 +23,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.logging.LogRecord;
 
 public class NotifyDialog_old {
 
@@ -222,7 +217,7 @@ public class NotifyDialog_old {
             future_result=future;
             name=name.concat(fileHandle.getName());
             path=path.concat(fileHandle.getAbsolutePathName());
-            modifiedTime=modifiedTime.concat(FMFormatter.timeDescriptionConvert_simpleLongToString(fileHandle.getLastModifiedTime()));
+            modifiedTime=modifiedTime.concat(FMFormatter.timeDescriptionConvert_LongStyle_l2s(fileHandle.getLastModifiedTime()));
             this.count="count: "+count;
         }
 

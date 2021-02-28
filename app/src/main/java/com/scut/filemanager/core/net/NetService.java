@@ -1,9 +1,14 @@
 package com.scut.filemanager.core.net;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.os.Bundle;
 import android.os.Message;
+import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -19,9 +24,9 @@ import com.scut.filemanager.core.internal.BoardCastScanWatcher;
 import com.scut.filemanager.ui.adapter.DeviceListViewAdapter;
 import com.scut.filemanager.ui.transaction.Request;
 import com.scut.filemanager.util.FMFormatter;
+import com.scut.filemanager.util.protocols.WifiStateChangeListener;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -38,7 +43,10 @@ import java.net.UnknownHostException;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
+import java.util.TreeMap;
 
 //该类是启动和控制服务的起点，
 public class NetService extends BoardCastScanWatcher {
@@ -66,8 +74,43 @@ public class NetService extends BoardCastScanWatcher {
     //function members
     private OnlineBoardCaster caster;
     public BoardCastScanner scanner;
-
+    private WiFiConnectChangeBroadCastReceiver receiver=new WiFiConnectChangeBroadCastReceiver();
     private ListenerAcceptLoop connectionAcceptLooper=null;
+
+
+    //    private WifiStateChangeListener wifiStateChangeListenerImpl=new WifiStateChangeListener() {
+//
+//        boolean idleFlag=false;
+//        long lastResetTime=0L;
+//        @Override
+//        public void onWifiStateChange(NetStatus arg_wifi_status) {
+//            switch(arg_wifi_status){
+//                case WIFI_DISABLED:
+//                    //stop
+//                    stopBoardCaster();
+//                    break;
+//                case WIFI_CONNECTED:
+//                    //check whether restart broadcaster
+//                    long now= SystemClock.uptimeMillis();
+//                    if(now-lastResetTime>1400){
+//                        startBoardCaster();
+//                        lastResetTime=now;
+//                    }
+//                    break;
+//                default:
+//                    if(deviceSelectActivity!=null){
+//                        deviceSelectActivity.displayErrorMessage(
+//                                "Current wifi status is "+arg_wifi_status.name()+" please check your network configuration");
+//                    }
+//                    break;
+//            }
+//        }
+//
+//        @Override
+//        public boolean isIdle() {
+//            return idleFlag;
+//        }
+//    };
 
     //reference controller
     private MainController main_controller=null;
@@ -95,45 +138,9 @@ public class NetService extends BoardCastScanWatcher {
             wifi_status =NetStatus.WIFI_PERMISSION_DENY;
         }
         else {
-
-            int wifiStatusi=wifi.getWifiState();
-            switch(wifiStatusi){
-                case WifiManager.WIFI_STATE_DISABLED:
-                case WifiManager.WIFI_STATE_DISABLING:
-                    wifi_status =NetStatus.WIFI_DISABLED;
-                    break;
-                case WifiManager.WIFI_STATE_ENABLING:
-                case WifiManager.WIFI_STATE_ENABLED:
-                    wifi_status =NetStatus.WIFI_ENABLED;
-                    break;
-                default:
-                    wifi_status =NetStatus.WIFI_STATUS_UNKNOWN;
-            }
-
-            if(wifi_status ==NetStatus.WIFI_ENABLED){
-                wifiInfo=wifi.getConnectionInfo();
-                if(wifiInfo.getIpAddress()!=-1){
-                    //wifi enabled but not connect or getIpAddress
-                    wifi_status =NetStatus.WIFI_CONNECTED;
-                }
-                //获取网卡信息
-//                try {
-//                    netInterfaces = NetworkInterface.getNetworkInterfaces();
-//                } catch (SocketException sockEx) {
-//                    sockEx.printStackTrace();
-//                }
-//                while(netInterfaces.hasMoreElements()){
-//                    NetworkInterface net_interface=netInterfaces.nextElement();
-//                    Enumeration<InetAddress> ips=net_interface.getInetAddresses();
-//                    while(ips.hasMoreElements()){
-//                        InetAddress inetAddress=ips.nextElement();
-//                        Log.i("test NetService:","hostname: "+inetAddress.getHostAddress()+" canonical hostname: " +
-//                                inetAddress.getCanonicalHostName()+" hostAddress"+inetAddress.getHostAddress());
-//                    }
-//                }
-            }
-
+            wifi_status=this.getStatusFromStatei(wifi.getWifiState());
         }
+
 
 
     }
@@ -143,8 +150,6 @@ public class NetService extends BoardCastScanWatcher {
      * 如果wifi未启用并连接，则会提示用户手动去连接，暂时不拉起相关设置页面
      */
     public void startScanner() {
-
-        if(getWifi_status()== NetStatus.WIFI_CONNECTED) {
 
             if (!isScanning) {
                 try {
@@ -163,20 +168,28 @@ public class NetService extends BoardCastScanWatcher {
                 }
                 isScanning = true;
             }
-        }
-        else{
-            //notify user or report it to upper handler
-        }
+
     }
 
-    public void startBoardCaster() throws SocketException {
-        this.caster=OnlineBoardCaster.getInstance(this);
-        threads[1]=new Thread(this.caster);
+    public void stopBoardCaster(){
+        this.caster.stop();
+    }
+
+    public void startBoardCaster() {
+        this.caster = OnlineBoardCaster.getInstance();
+        if(threads[1]!=null) {
+            try {
+                threads[1].join();
+            } catch (InterruptedException e) {
+                Log.e(this.getClass().getName(), e.getMessage());
+            }
+        }
+        threads[1] = new Thread(this.caster);
         threads[1].start();
     }
 
-    public NetStatus getWifi_status(){
-        return wifi_status;
+    public NetStatus getWifiStatus(){
+        return getStatusFromStatei(wifi.getWifiState());
     }
 
     public WifiInfo getWifiConnectionInfo(){
@@ -238,7 +251,7 @@ public class NetService extends BoardCastScanWatcher {
     @Description: return null if netServiceStatus isn't WIFI_CONNECTED
      */
     public String getWifiIpAddressDesc(){
-        if(getWifi_status()==NetStatus.WIFI_CONNECTED){
+        if(getWifiStatus()==NetStatus.WIFI_CONNECTED){
             return FMFormatter.ip4Address_i2s(wifiInfo.getIpAddress());
         }
         return null;
@@ -260,6 +273,8 @@ public class NetService extends BoardCastScanWatcher {
      * 这里的函数应该是处理已经过滤过的InquirePacket,只有这样才能避免多次刷新界面
      * @param key
      * @param value
+     * 非独立线程的活动直接导致了被动式的接口调用，但调用方的生命周期却比被调用方生命周期要短，
+     * 使得被调用方增加许多检测语句
      */
     @Override
     public void onProgress(InetAddress key, InquirePacket value) {
@@ -286,10 +301,11 @@ public class NetService extends BoardCastScanWatcher {
         }
     }
 
-    enum NetStatus{
+    public enum NetStatus{
         WIFI_CONNECTED, //wifi 已连接并获得IP地址
         LTE_CONNECTED,  //这个凑数
         WIFI_DISABLED, //wifi 被关闭
+        WIFI_DISABLING,WIFI_ENABLING,
         WIFI_ENABLED,   //wifi 被打开，但是没有连接
         WIFI_PERMISSION_DENY, //wifi 无权限访问
         WIFI_STATUS_UNKNOWN,//universal status
@@ -309,6 +325,7 @@ public class NetService extends BoardCastScanWatcher {
     public void bindDeviceSelectActivity(@NonNull DeviceSelectActivity activity){
         this.deviceSelectActivity =activity;
         this.deviceSelectActivity.setNetServiceRef(this);
+        this.getWiFiConnectChangeBroadCastReceiver().addListener(activity,500);
     }
 
     public void setMainController(MainController controller){
@@ -332,7 +349,56 @@ public class NetService extends BoardCastScanWatcher {
         }
     }
 
+    private NetStatus getStatusFromStatei(int statei){
+        NetStatus _wifi_status;
+        switch(statei){
+            case WifiManager.WIFI_STATE_DISABLED:
+                _wifi_status=NetStatus.WIFI_DISABLED;
+                break;
+            case WifiManager.WIFI_STATE_DISABLING:
+                _wifi_status =NetStatus.WIFI_DISABLING;
+                break;
+            case WifiManager.WIFI_STATE_ENABLING:
+                _wifi_status=NetStatus.WIFI_ENABLING;
+                break;
+            case WifiManager.WIFI_STATE_ENABLED:
+                _wifi_status =NetStatus.WIFI_ENABLED;
+                break;
+            default:
+                _wifi_status =NetStatus.WIFI_STATUS_UNKNOWN;
+                break;
+        }
 
+        if(_wifi_status ==NetStatus.WIFI_ENABLED){
+            wifiInfo=wifi.getConnectionInfo();
+            if(wifiInfo.getIpAddress()!=-1&&wifiInfo.getIpAddress()!=0){
+                //wifi enabled but not connect or getIpAddress
+                //Log.d(wifiInfo.getClass().getName(),FMFormatter.ip4Address_i2s(wifiInfo.getIpAddress())+String.valueOf(wifiInfo.getIpAddress()) );
+                _wifi_status =NetStatus.WIFI_CONNECTED;
+            }
+            //获取网卡信息
+//                try {
+//                    netInterfaces = NetworkInterface.getNetworkInterfaces();
+//                } catch (SocketException sockEx) {
+//                    sockEx.printStackTrace();
+//                }
+//                while(netInterfaces.hasMoreElements()){
+//                    NetworkInterface net_interface=netInterfaces.nextElement();
+//                    Enumeration<InetAddress> ips=net_interface.getInetAddresses();
+//                    while(ips.hasMoreElements()){
+//                        InetAddress inetAddress=ips.nextElement();
+//                        Log.i("test NetService:","hostname: "+inetAddress.getHostAddress()+" canonical hostname: " +
+//                                inetAddress.getCanonicalHostName()+" hostAddress"+inetAddress.getHostAddress());
+//                    }
+//                }
+        }
+
+        return _wifi_status;
+    }
+
+    public WiFiConnectChangeBroadCastReceiver getWiFiConnectChangeBroadCastReceiver(){
+        return this.receiver;
+    }
     /**
      * 该内部类相当于一个代理了构造询问包，建立连接的一个类，它独立于一个线程中工作，并且需要为它传入
      * 监视器对象，至于监视器对象如何通知前端进行显示，需要由监视器对象根据取得的信息进行操作。
@@ -341,6 +407,86 @@ public class NetService extends BoardCastScanWatcher {
     private static class InnerShare {
         static short udpSocketSemaphore=0; //关闭udpSocket时的检查的共享信号，也可用来指定
         static DatagramSocket udpSocket=null;
+    }
+
+    public class WiFiConnectChangeBroadCastReceiver extends BroadcastReceiver{
+
+        private TreeMap<Integer, WifiStateChangeListener> listenerTreeMap;
+        private Map.Entry<Integer,WifiStateChangeListener> nextEntry;
+
+        public WiFiConnectChangeBroadCastReceiver(){
+            listenerTreeMap=new TreeMap<>();
+            resetListenerIterator();
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action=intent.getAction();
+
+            //disable -> network state change
+            //enable -> ? | network state change
+            Log.d(this.getClass().getName(),action);
+            if(action.equals(WifiManager.WIFI_STATE_CHANGED_ACTION)){
+                int wifi_state=intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE,-1);
+                listenerRespond(getStatusFromStatei(wifi_state));
+            }
+        }
+
+        public void addListener(WifiStateChangeListener listener,int Priority){
+            while(listenerTreeMap.containsKey(Priority)){
+                Priority--;
+            }
+            listenerTreeMap.put(Priority,listener);
+        }
+
+
+        private void logOutBundle(Bundle bundle){
+            Set<String> keySet=bundle.keySet();
+            for (String key :
+                    keySet) {
+                Log.d("key", key);
+            }
+        }
+
+        private boolean hasNextHook(){
+            return nextEntry!=null;
+        }
+
+
+
+        private Map.Entry<Integer,WifiStateChangeListener> nextHook(){
+            Map.Entry<Integer,WifiStateChangeListener> currentEntry=nextEntry;
+            if(nextEntry!=null) {
+                nextEntry=listenerTreeMap.lowerEntry(nextEntry.getKey());
+            }
+            return currentEntry;
+        }
+
+        private void resetListenerIterator(){
+            if(!listenerTreeMap.isEmpty()) {
+                nextEntry = listenerTreeMap.lastEntry();
+            }
+        }
+
+        private void listenerRespond(NetStatus wifi_status){
+            while(this.hasNextHook()){
+                Map.Entry<Integer,WifiStateChangeListener> entry=this.nextHook();
+                if(entry.getValue().isIdle()){
+                    listenerTreeMap.remove(entry.getKey());
+                }
+                else{
+                    entry.getValue().onWifiStateChange(wifi_status);
+                }
+            }
+            resetListenerIterator();
+        }
+
+        public IntentFilter getIntentFilter(){
+            IntentFilter filter=new IntentFilter();
+            filter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
+            filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
+            return filter;
+        }
     }
 
     private class ACKTask implements Runnable{

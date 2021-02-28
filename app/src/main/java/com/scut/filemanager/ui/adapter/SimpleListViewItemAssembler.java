@@ -560,7 +560,7 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
                     itemData.resId = getIconResourceIdByFileName(handle.getName());
                 }
                 detailInfo.append("  size: " + FMFormatter.getSuitableFileSizeString(handle.Size()));
-                detailInfo.append(" " + FMFormatter.timeDescriptionConvert_simpleLongToString(handle.getLastModifiedTime()));
+                detailInfo.append(" " + FMFormatter.timeDescriptionConvert_LongStyle_l2s(handle.getLastModifiedTime()));
                 itemData.itemDetailInfo = detailInfo.toString();
 
 

@@ -8,9 +8,9 @@
     <TextView
         android:id="@+id/textview_progress_task_desc"
         android:layout_width="match_parent"
+
         android:minHeight="30dp"
         android:layout_height="wrap_content"
-        android:maxLines="1"
         />
     <TextView
         android:id="@+id/textview_progress_desc"
@@ -31,5 +31,11 @@
         style="@style/Widget.AppCompat.ProgressBar.Horizontal"
         android:layout_width="match_parent"
         android:layout_height="30dp"
+        />
+    <TextView
+        android:id="@+id/textview_progress_time_ticking"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="30dp"
         />
 </LinearLayout>

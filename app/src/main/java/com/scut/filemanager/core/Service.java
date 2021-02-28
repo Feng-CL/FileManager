@@ -984,7 +984,7 @@ public class Service {
                         while (numberOfBlocksCopied < numberOfBlocks - 1) {
 
                             waitUntilNotInterrupt();//here is a waiting point，abortSignal is invalid here
-                            if(!hasNotAborted){
+                            if(!hasNotAborted){ //循环内部设置退出检查点。
                                 return false; //退出点，防止以下代码继续执行
                             }
 

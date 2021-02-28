@@ -11,6 +11,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -21,6 +22,7 @@ import androidx.appcompat.widget.Toolbar;
 import com.scut.filemanager.core.net.NetService;
 import com.scut.filemanager.ui.adapter.DeviceListViewAdapter;
 import com.scut.filemanager.ui.transaction.Request;
+import com.scut.filemanager.util.protocols.WifiStateChangeListener;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -31,13 +33,14 @@ import java.util.TimerTask;
 @Description: 该活动主要用于处理选择发送设备的，把选择的索引发送给原来的activity
  */
 public class DeviceSelectActivity extends AppCompatActivity
-implements View.OnClickListener
+implements View.OnClickListener, WifiStateChangeListener
 {
 
     //UI outlets:
     Toolbar toolbar;
     ListView listView;
-
+    TextView textView_errorMsg;
+    Menu menu;
     //adapter for list view
     public DeviceListViewAdapter adapter;
 
@@ -47,6 +50,8 @@ implements View.OnClickListener
 
     //state maintain
     private boolean device_list_change_lock =true;
+    private boolean menuBtnEnabled;
+    private boolean wifiStateChangeRespondFlag_idle=false;
 
     //ui refresh handler
     public Handler mHandler=new Handler(Looper.getMainLooper()){
@@ -147,6 +152,7 @@ implements View.OnClickListener
         //retrieve UI outlets:
         this.listView=(ListView)findViewById(R.id.listview_for_displaying_devices);
         this.toolbar=(Toolbar) findViewById(R.id.my_toolbar);
+        this.textView_errorMsg=findViewById(R.id.textview_lansender_err_msg);
         setSupportActionBar(toolbar);
 
         //需要放在setSupportActionBar之后
@@ -176,11 +182,39 @@ implements View.OnClickListener
     @Override
     protected void onStart() {
         super.onStart();
+        Log.d("deviceSelectActivity", "onStart: "+net_service.getWifiStatus());
+        //check network state
+        if(net_service.getWifiStatus()!=NetService.NetStatus.WIFI_CONNECTED){
+            String err_msg="Current wifi status is "+net_service.getWifiStatus().name()+" please check your network setting";
+            this.textView_errorMsg.setText(err_msg);
+            if(menu==null) {
+                menuBtnEnabled = false;
+            }
+            else{
+                for(int i=0;i<menu.size();i++){
+                    menu.getItem(i).setEnabled(false);
+                }
+            }
+
+        }
+        else{
+            textView_errorMsg.setText("");
+            if(menu==null) {
+                menuBtnEnabled = true;
+            }
+            else {
+                for(int i=0;i<menu.size();i++){
+                    menu.getItem(i).setEnabled(true);
+                }
+            }
+        }
     }
+
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        wifiStateChangeRespondFlag_idle=true;
         this.net_service.unBindDeviceSelectActivity();
     }
 
@@ -188,6 +222,12 @@ implements View.OnClickListener
     public boolean onCreateOptionsMenu(Menu menu) {
         super.onCreateOptionsMenu(menu);
         getMenuInflater().inflate(R.menu.menu_lan_sender,menu);
+        this.menu=menu;
+        if(!menuBtnEnabled){
+            for(int i=0;i<menu.size();i++){
+                menu.getItem(i).setEnabled(false);
+            }
+        }
         return true;
     }
 
@@ -195,6 +235,44 @@ implements View.OnClickListener
     public void onClick(View v) {
         int tag= (int) v.getTag();
         adapter.mark(tag);
+    }
+
+    @Override
+    public void onWifiStateChange(NetService.NetStatus wifi_status) {
+        Log.d(this.getClass().getName(),"onWifiStateChange "+ wifi_status.name());
+        if(wifi_status.equals(NetService.NetStatus.WIFI_CONNECTED)){
+            menuBtnEnabled=true;
+            for(int i=0;i<menu.size();i++){
+                menu.getItem(i).setEnabled(menuBtnEnabled);
+            }
+        }
+        else {
+            menuBtnEnabled=false;
+            for(int i=0;i<menu.size();i++){
+                menu.getItem(i).setEnabled(menuBtnEnabled);
+            }
+            String tip;
+            switch (wifi_status){
+                case WIFI_ENABLED:
+                    tip="Wifi is enabled, but not connected, please check your network configuration";
+                    break;
+                case WIFI_ENABLING:
+                    tip="Wifi is enabling";
+                    break;
+                case WIFI_DISABLING:
+                    tip="Wifi is disabling";
+                    break;
+                default:
+                    tip="Current wifi state is "+wifi_status.name().concat(", please check your network configuration");
+                    break;
+            }
+            this.displayErrorMessage(tip);
+        }
+    }
+
+    @Override
+    public boolean isIdle() {
+        return wifiStateChangeRespondFlag_idle;
     }
 
     public static class UIMessageCode{
@@ -261,6 +339,9 @@ implements View.OnClickListener
 
     }
 
+    public void displayErrorMessage(String err){ //只能在ui线程中调用该方法
+        textView_errorMsg.setText(err);
+    }
 
     public void makeToast(String toast_text){
         this.mHandler.sendMessage(

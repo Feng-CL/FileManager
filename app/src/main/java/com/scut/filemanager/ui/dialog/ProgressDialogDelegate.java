@@ -29,7 +29,7 @@ public class ProgressDialogDelegate {
     private Activity context;
     //UI outlets
     AlertDialog alertDialog;
-    TextView textView_task_desc,textView_progress_desc,textView_speed_desc;
+    TextView textView_task_desc,textView_progress_desc,textView_speed_desc,textView_timeTicking;
     ProgressBar progressBar;
 
     //UI handler
@@ -64,6 +64,9 @@ public class ProgressDialogDelegate {
                     break;
                 case UIMessageCode.UPDATE_TITLE:
                     alertDialog.setTitle((String) msg.obj);
+                    break;
+                case UIMessageCode.UPDATE_TIME_TICKING:
+                    textView_timeTicking.setText((String)msg.obj);
                     break;
                 default:
                     super.handleMessage(msg);
@@ -105,7 +108,7 @@ public class ProgressDialogDelegate {
         textView_progress_desc=linearLayout.findViewById(R.id.textview_progress_desc);
         textView_task_desc=linearLayout.findViewById(R.id.textview_progress_task_desc);
         textView_speed_desc=linearLayout.findViewById(R.id.textview_progress_speed_desc);
-
+        textView_timeTicking=linearLayout.findViewById(R.id.textview_progress_time_ticking);
 
         progressBar=linearLayout.findViewById(R.id.progressbar_h);
         progressBar.setMax(provider.getMaxMeasure());
@@ -179,6 +182,7 @@ public class ProgressDialogDelegate {
         public static final int POP_NOTIFY_DIALOG=4; //obj 为String[] 0 为title 1为信息
         public static final int CLOSE_DIALOG=5;
         public static final int UPDATE_TITLE=6;
+        public static final int UPDATE_TIME_TICKING=7;
     }
 
     public void update_progress_bar(int progress_value,String desc){
@@ -202,6 +206,12 @@ public class ProgressDialogDelegate {
     public void update_title(String title){
         this.mHandler.sendMessage(
                 Request.obtain(UIMessageCode.UPDATE_TITLE,title )
+        );
+    }
+
+    public void update_time_ticking(String time){
+        this.mHandler.sendMessage(
+                Request.obtain(UIMessageCode.UPDATE_TIME_TICKING,"Elapsed time: "+time)
         );
     }
 

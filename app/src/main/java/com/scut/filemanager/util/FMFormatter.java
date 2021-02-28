@@ -13,11 +13,26 @@ public class FMFormatter {
     /*
     @Description: 一个简单的long 到String的转换函数，日期格式固定为 "HH:mm:ss yyyy-MM-dd"
      */
-    public static String timeDescriptionConvert_simpleLongToString(long time_long){
-        Date date=new Date(time_long);
-        SimpleDateFormat Formatter=new SimpleDateFormat("HH:mm:ss yyyy-MM-dd");
-        return Formatter.format(date);
+    static SimpleDateFormat simpleDateFormat=null;
 
+    public static String timeDescriptionConvert_LongStyle_l2s(long time_long){
+        Date date=new Date(time_long);
+        if(simpleDateFormat==null) {
+            simpleDateFormat = new SimpleDateFormat();
+        }
+        simpleDateFormat.applyPattern("HH:mm:ss yyyy-MM-dd");
+        return simpleDateFormat.format(date);
+
+    }
+
+    public static String timeDescriptionConvert_ShortStyle_l2s(long time){
+        if(simpleDateFormat==null){
+            simpleDateFormat=new SimpleDateFormat();
+        }
+        simpleDateFormat.applyPattern("HH:mm:ss");
+        return simpleDateFormat.format(
+                new Date(time)
+        );
     }
 
     /*

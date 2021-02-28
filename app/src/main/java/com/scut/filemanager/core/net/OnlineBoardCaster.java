@@ -2,6 +2,8 @@ package com.scut.filemanager.core.net;
 
 
 
+import android.util.Log;
+
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.DatagramPacket;
@@ -20,6 +22,7 @@ public class OnlineBoardCaster implements Runnable {
     private int statusCode=OnlineBoardCaster.STOP;
     private byte[] sndBuf=new byte[8*1024];
 
+
     static public final int NORMAL=0;
     static public final int STOP=1;
     static public final int SO_MULTICAST_DISABLED=2;
@@ -31,7 +34,7 @@ public class OnlineBoardCaster implements Runnable {
 
 
 
-    private OnlineBoardCaster(NetService netService)  {
+    private OnlineBoardCaster()  {
         try {
             InetAddress boardcastAddr=InetAddress.getByName("255.255.255.255");
             alivePacket = new DatagramPacket(sndBuf,0,boardcastAddr,33720 );
@@ -51,9 +54,9 @@ public class OnlineBoardCaster implements Runnable {
         }
     }
 
-    static public OnlineBoardCaster getInstance(NetService netService){
+    static public OnlineBoardCaster getInstance(){
         if(caster==null){
-            caster=new OnlineBoardCaster(netService);
+            caster=new OnlineBoardCaster();
         }
         return caster;
     }
@@ -82,18 +85,22 @@ public class OnlineBoardCaster implements Runnable {
             try {
                 synchronized (alivePacket) {
                     udpSocket.send(alivePacket);
+                    this.statusCode=OnlineBoardCaster.NORMAL;
                 }
                 Thread.sleep(2000);
             }
             catch(IOException ioex){
                 this.statusCode=OnlineBoardCaster.MEET_IO_EXCEPTION;
+                //Log.d(this.getClass().getName(),"statusCode "+statusCode+ioex.getMessage());
             }
             catch (InterruptedException ex){
                 this.statusCode=OnlineBoardCaster.INTERUPPT_WHEN_SLEEP;
             }
+            //Log.d(this.getClass().getName(),"statusCode "+statusCode);
         }
         udpSocket.close();
         statusCode=OnlineBoardCaster.STOP;
+        caster=null;
     }
 
     public void stop(){

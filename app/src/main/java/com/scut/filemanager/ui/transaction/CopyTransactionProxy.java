@@ -2,6 +2,7 @@ package com.scut.filemanager.ui.transaction;
 
 import android.content.DialogInterface;
 import android.os.Handler;
+import android.os.SystemClock;
 
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.Service;
@@ -25,6 +26,7 @@ public class CopyTransactionProxy extends CopyTaskMonitor
     private long startTime,now;
     private String dstPath;
     private FileHandle[] selectedFiles;
+    private ProgressDialogDelegate progressDialogDelegate;
     //private int currentSubTaskId=0;
     //status
 
@@ -47,20 +49,20 @@ public class CopyTransactionProxy extends CopyTaskMonitor
 
         if(selectedFiles.length==1){
             //invoke dialog
-            ProgressDialogDelegate delegate=new ProgressDialogDelegate(parentController.getFileManagerCoreService().getContext(),
+            progressDialogDelegate=new ProgressDialogDelegate(parentController.getFileManagerCoreService().getContext(),
                     this,ProgressDialogDelegate.ACTION.COPY);
-            this.targetHandler=delegate.getHandler();
-            delegate.showDialog();
+            this.targetHandler=progressDialogDelegate.getHandler();
+            progressDialogDelegate.showDialog();
 
             parentController.getFileManagerCoreService().copy(selectedFiles[0],dstPath,this,false,
                     Service.Service_CopyOption.RECURSIVE_COPY,Service.Service_CopyOption.REPLACE_EXISTING);
         }
         else if(selectedFiles.length>1){
             //invoke dialog
-            ProgressDialogDelegate delegate=new ProgressDialogDelegate(parentController.getFileManagerCoreService().getContext(),
+            this.progressDialogDelegate=new ProgressDialogDelegate(parentController.getFileManagerCoreService().getContext(),
                     this,ProgressDialogDelegate.ACTION.COPY);
-            this.targetHandler=delegate.getHandler();
-            delegate.showDialog();
+            this.targetHandler=this.progressDialogDelegate.getHandler();
+            this.progressDialogDelegate.showDialog();
             parentController.getFileManagerCoreService().copy(selectedFiles,dstPath,this,false,
                     Service.Service_CopyOption.REPLACE_EXISTING,Service.Service_CopyOption.RECURSIVE_COPY);
         }
@@ -94,7 +96,7 @@ public class CopyTransactionProxy extends CopyTaskMonitor
         主线程的进度对话框dismiss之后，this.targetHandler将可能会被垃圾回收，这里需要注意
         因为在后续线程结束的时候还会调用onFinished,而onFinished此时不能使用targetHandler来更新UI，改用Toast
          */
-        sendCancelSignal(0);
+        sendCancelSignal();
     }
 
     private boolean isDialogHide=false;
@@ -129,7 +131,7 @@ public class CopyTransactionProxy extends CopyTaskMonitor
     public void onStart() { //这里是主线程的时间
         //notify
         super.onStart();
-        startTime=System.currentTimeMillis();
+        startTime= SystemClock.elapsedRealtime();
 
         //通知正在估算进度
         this.targetHandler.sendMessage(
@@ -206,10 +208,10 @@ public class CopyTransactionProxy extends CopyTaskMonitor
 
 
     @Override //通告mHandler
-    public void onSubProgress(int taskId, String key, Long value) { //这里是子线程的时间
+    public void onSubProgress(int taskId, String key, Long value) {
         if(!isDialogHide) {
             this.getTracker().put(taskId, value);
-            now = System.currentTimeMillis();
+            now = SystemClock.elapsedRealtime();
             long byteOfCopied = reportValueByTracker();
             int progress_finished = calculateProgress(byteOfCopied);
             this.targetHandler.sendMessage(
@@ -221,6 +223,9 @@ public class CopyTransactionProxy extends CopyTaskMonitor
                     Request.obtain(ProgressDialogDelegate.UIMessageCode.UPDATE_SPEED_DESC,
                             calculateSpeed(now, byteOfCopied))
             );
+            long duration=now-startTime;
+            String time_duration_hhMMss=FMFormatter.timeDescriptionConvert_ShortStyle_l2s(duration);
+            this.progressDialogDelegate.update_time_ticking(time_duration_hhMMss);
         }
     }
 

@@ -35,10 +35,11 @@
             android:id="@+id/textview_lansender_err_msg"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="21dp"
+            android:textSize="15dp"
             android:textColor="@color/pureBlack"
-            android:layout_gravity="center_horizontal|bottom"
+            android:gravity="center"
             android:layout_marginBottom="20dp"
+            android:layout_gravity="center_horizontal|bottom"
             />
     </FrameLayout>
 
