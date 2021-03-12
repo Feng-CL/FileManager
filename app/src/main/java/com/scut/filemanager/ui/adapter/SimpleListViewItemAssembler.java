@@ -17,12 +17,12 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
-import com.scut.filemanager.FMGlobal;
+import com.scut.filemanager.FileManager;
 import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.FileHandleFilter;
 import com.scut.filemanager.core.concurrent.SharedThreadPool;
-import com.scut.filemanager.ui.TabViewController;
+import com.scut.filemanager.ui.controller.TabViewController;
 import com.scut.filemanager.util.SimpleArrayFilter;
 import com.scut.filemanager.util.Sorter;
 import com.scut.filemanager.util.FMFormatter;
@@ -56,7 +56,7 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
 
     //sorter
     private Comparator<FileHandle> comparator=null;
-    private static Comparator<FileHandle> default_comparator= FMGlobal.Default_FileHandleComparator;
+    private static Comparator<FileHandle> default_comparator= FileManager.Default_FileHandleComparator;
 
     //status maintain
 
@@ -399,7 +399,7 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
             useComparator=comparator!=null?comparator:default_comparator;
 
             Sorter.mergeSort(file_array,useComparator,4);
-            Log.d("ItemAssembler","sorts items successfully");
+           // Log.d("ItemAssembler","sorts items successfully");
 
             for(int i=0;i<item_count;i++){
                 list_of_files.add(file_array[i]);

@@ -23,13 +23,13 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
-import com.scut.filemanager.FMGlobal;
+import com.scut.filemanager.FileManager;
 import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.FileHandleFilter;
 import com.scut.filemanager.core.Service;
-import com.scut.filemanager.ui.BaseController;
-import com.scut.filemanager.ui.TabViewController;
+import com.scut.filemanager.ui.controller.BaseController;
+import com.scut.filemanager.ui.controller.TabViewController;
 import com.scut.filemanager.ui.protocols.LocationPickerCallback;
 import com.scut.filemanager.ui.transaction.TransactionProxy;
 import com.scut.filemanager.util.FMArrays;
@@ -217,7 +217,7 @@ public class LocationPickDialogDelegate extends BaseController
                 R.id.textview_item_name, ls
         );
         listView.setAdapter(arrayAdapter);
-        this.sort(FMGlobal.Default_FileHandleComparator); //sort them
+        this.sort(FileManager.Default_FileHandleComparator); //sort them
 
         //display title
         setDisplayLocation(currentFileHandle.getAbsolutePathName());
@@ -300,7 +300,7 @@ public class LocationPickDialogDelegate extends BaseController
         //过滤空元素,主要取决于列表是否支持空元素
         if(fileHandles!=null&&fileHandles.length>0) {
             arrayAdapter.addAll(fileHandles);
-            this.sort(FMGlobal.Default_FileHandleComparator);
+            this.sort(FileManager.Default_FileHandleComparator);
             this.mHandler.sendMessage(obtainMessage(InnerMessageCode.SHOW_EMPTY_FOLDER_TIP,1));
         }
         else {

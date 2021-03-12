@@ -11,7 +11,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
-import com.scut.filemanager.FMGlobal;
+import com.scut.filemanager.FileManager;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.ProgressMonitor;
 import com.scut.filemanager.core.Service;
@@ -57,7 +57,7 @@ public class FileTransferTransactionMiddleWare extends AbstractDialogCallBack
         @Override
         public void handleMessage(@NonNull Message msg) {
             switch (msg.what){
-                case FMGlobal
+                case FileManager
                         .MAKE_TOAST:
                     String toast=(String)msg.obj;
                     Toast.makeText(context, toast, Toast.LENGTH_SHORT).show();
@@ -166,7 +166,7 @@ public class FileTransferTransactionMiddleWare extends AbstractDialogCallBack
 
     public void toast(String toast){
         this.mHandler.sendMessage(
-                Request.obtain(FMGlobal.MAKE_TOAST,toast)
+                Request.obtain(FileManager.MAKE_TOAST,toast)
         );
     }
     /**
@@ -271,6 +271,8 @@ public class FileTransferTransactionMiddleWare extends AbstractDialogCallBack
                 case NetService.MessageCode.ERR_SOCKET_EXCEPTION:
                 case NetService.MessageCode.ERR_UNKNOWN:
                     delegate.pop_notify_dialog(String.valueOf(code),notice);
+                    //close delegate
+                    delegate.closeDialog();
                     break;
                 case NetService.MessageCode.NOTICE_CONNECTED:
                     delegate.update_task_description("connection established");

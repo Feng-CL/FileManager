@@ -1,4 +1,4 @@
-package com.scut.filemanager.ui;
+package com.scut.filemanager.ui.controller;
 
 import android.content.Context;
 import android.os.Build;

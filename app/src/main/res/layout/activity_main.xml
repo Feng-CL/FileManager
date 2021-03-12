@@ -1,79 +1,98 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:layout_width="match_parent"
+    >
 
-    android:id="@+id/mainFrame"
-    tools:context=".MainActivity"
-    android:orientation="vertical">
-
-
-        <!-- app:popupTheme: Reference to a theme that should be used to inflate popups
-shown by widgets in the action bar. -->
-        <androidx.appcompat.widget.Toolbar
-            android:id="@+id/my_toolbar"
-            android:layout_width="match_parent"
-
-            android:layout_height="?attr/actionBarSize"
-            android:background="@color/ilovethiscolor"
-            android:elevation="4dp"
-            android:theme="@style/ThemeOverlay.AppCompat.ActionBar"
-
-            app:layout_constraintBottom_toTopOf="@id/layout_tabViewContainer"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-
-            app:layout_constraintTop_toTopOf="parent"
-            app:popupTheme="@style/ThemeOverlay.AppCompat.Light" />
 
 
         <LinearLayout
-            android:id="@+id/layout_tabViewContainer"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-
-            app:layout_constraintBottom_toBottomOf="parent"
-            android:layout_marginBottom="0dp"
-            app:layout_constraintTop_toBottomOf="@id/my_toolbar"
+            android:id="@+id/mainFrame"
+            tools:context=".main.MainActivity"
             android:orientation="vertical">
-                <ViewStub
-                    android:id="@+id/viewStub_for_locationBar"
+
+
+                <!-- app:popupTheme: Reference to a theme that should be used to inflate popups
+        shown by widgets in the action bar. -->
+                <androidx.appcompat.widget.Toolbar
+                    android:id="@+id/my_toolbar"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"/>
-                <FrameLayout
+                    app:navigationIcon="@drawable/ic_navigation_3line_black"
+                    android:layout_height="?attr/actionBarSize"
+                    android:background="@color/ilovethiscolor"
+                    android:elevation="4dp"
+                    android:theme="@style/ThemeOverlay.AppCompat.ActionBar"
+
+                    app:layout_constraintBottom_toTopOf="@id/layout_tabViewContainer"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:popupTheme="@style/ThemeOverlay.AppCompat.Light" />
+
+
+                <LinearLayout
+                    android:id="@+id/layout_tabViewContainer"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent">
+                    android:layout_height="match_parent"
 
-                        <ProgressBar
-                            android:id="@+id/progressbar_loading"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="top|center_horizontal"
-
-                                />
-
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    android:layout_marginBottom="0dp"
+                    app:layout_constraintTop_toBottomOf="@id/my_toolbar"
+                    android:orientation="vertical">
                         <ViewStub
-                            android:id="@+id/viewStub_for_listView"
+                            android:id="@+id/viewStub_for_locationBar"
                             android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            />
+                            android:layout_height="wrap_content"/>
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent">
 
-                        <!-- 操作栏视图桩，暂时使用了绝对布局-->
-                        <ViewStub
-                            android:id="@+id/rootview_for_operationBar"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="bottom|center_horizontal"
-                            android:layout_marginBottom="30dp"
+                                <ProgressBar
+                                    android:id="@+id/progressbar_loading"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="top|center_horizontal"
 
-                            />
+                                    />
 
-                </FrameLayout>
+                                <ViewStub
+                                    android:id="@+id/viewStub_for_listView"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    />
+
+                                <!-- 操作栏视图桩，暂时使用了绝对布局-->
+                                <ViewStub
+                                    android:id="@+id/rootview_for_operationBar"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="bottom|center_horizontal"
+                                    android:layout_marginBottom="30dp"
+
+                                    />
+
+                        </FrameLayout>
+                </LinearLayout>
+
+
+
+
         </LinearLayout>
 
+        <!-- 需要自己通过编程的方式固化layout_marginLeft的值-->
+        <fragment
+            android:name="com.scut.filemanager.main.fragment.NavigationDrawerFragment"
+            android:id="@+id/fragment_main_navigation"
+            android:layout_width="250dp"
+            android:layout_marginLeft="-250dp"
+            android:layout_height="match_parent"
 
+            />
+</FrameLayout>
 
-
-</LinearLayout>

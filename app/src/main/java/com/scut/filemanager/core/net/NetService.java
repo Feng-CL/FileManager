@@ -8,14 +8,13 @@ import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Message;
-import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.scut.filemanager.DeviceSelectActivity;
-import com.scut.filemanager.FMGlobal;
-import com.scut.filemanager.MainController;
+import com.scut.filemanager.main.activity.DeviceSelectActivity;
+import com.scut.filemanager.FileManager;
+import com.scut.filemanager.main.MainController;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.ProgressMonitor;
 import com.scut.filemanager.core.Service;
@@ -61,6 +60,7 @@ public class NetService extends BoardCastScanWatcher {
 
     //save status
     private NetStatus wifi_status =NetStatus.UNINITIALIZED;
+    private NetStatus LTE_status=NetStatus.UNINITIALIZED;
     private boolean isScanning=false;
 
 
@@ -344,7 +344,7 @@ public class NetService extends BoardCastScanWatcher {
     public void notifyActivityToToast(String text){
         if(this.deviceSelectActivity !=null){
             this.deviceSelectActivity.mHandler.sendMessage(
-                    Request.obtain(FMGlobal.MAKE_TOAST,text)
+                    Request.obtain(FileManager.MAKE_TOAST,text)
             );
         }
     }
@@ -514,7 +514,7 @@ public class NetService extends BoardCastScanWatcher {
                     inquirePacket=new InquirePacket(InquirePacket.MessageCode.ACK_IP_FILES_AND_FOLDERS);
                 }
                 byte[] buf=inquirePacket.getBytes();
-                DatagramPacket pkt=new DatagramPacket(buf,buf.length,target,FMGlobal.BoardCastReceivePort);
+                DatagramPacket pkt=new DatagramPacket(buf,buf.length,target, FileManager.BoardCastReceivePort);
                 InnerShare.udpSocket.send(pkt);
                 Log.d("ACKTask","send ACK");
             }catch (IOException e) {
@@ -666,6 +666,7 @@ public class NetService extends BoardCastScanWatcher {
             else {
                 if (inquirePacketFromIp.what == InquirePacket.MessageCode.ACK_IP_FILES_AND_FOLDERS) {
                     Log.d("WaitForACK","return 1");
+
                     return 1;
                 } else if (inquirePacketFromIp.what == InquirePacket.MessageCode.N_ACK_IP_FILES_AND_FOLDER) {
                     return -1;
@@ -681,7 +682,7 @@ public class NetService extends BoardCastScanWatcher {
          * @return
          */
         private Socket procedure_connect_to_target() throws InterruptedException {
-            if (connectionAcceptLooper == null) {
+            if (connectionAcceptLooper == null||connectionAcceptLooper.terminateSignal) { //add terminateSignal here at  2021/3/3
                 connectionAcceptLooper = new ListenerAcceptLoop(monitor, InnerShare.udpSocketSemaphore);
                 SharedThreadPool.getInstance().executeTask(connectionAcceptLooper, SharedThreadPool.PRIORITY.CACHED);
                 while (connectionAcceptLooper.socketAccepted == null) {
@@ -779,7 +780,7 @@ public class NetService extends BoardCastScanWatcher {
             this.monitor=monitor;
             this.clientCount=clientCount;
             try {
-                serverSocket=new ServerSocket(FMGlobal.ListenerPort);
+                serverSocket=new ServerSocket(FileManager.ListenerPort);
                 serverSocket.setSoTimeout(3*60*1000);
             } catch (IOException e) {
                 monitor.receiveMessage(MessageCode.ERR_IO_EXCEPTION,e.getMessage());

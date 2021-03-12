@@ -1,19 +1,19 @@
-package com.scut.filemanager;
+package com.scut.filemanager.main;
 
 import android.content.Context;
 import android.util.Log;
-import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.ListView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
+import androidx.annotation.UiThread;
 
+import com.scut.filemanager.R;
 import com.scut.filemanager.core.Service;
 import com.scut.filemanager.core.net.InquirePacket;
 import com.scut.filemanager.core.net.NetService;
-import com.scut.filemanager.ui.TabViewController;
-import com.scut.filemanager.ui.protocols.DialogCallBack;
+import com.scut.filemanager.main.MainActivity;
+import com.scut.filemanager.ui.controller.TabViewController;
 import com.scut.filemanager.ui.transaction.Request;
 import com.scut.filemanager.util.protocols.KeyDownEventHandler;
 
@@ -77,7 +77,7 @@ public class MainController {
         netService.startScanner();
     }
 
-
+    @UiThread
     public void init() throws Exception {
         ViewStub viewStub= (ViewStub)main_activity.findViewById(R.id.viewStub_for_listView);
         viewStub.setLayoutResource(R.layout.list_view_basic_for_files);

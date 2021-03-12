@@ -1,4 +1,4 @@
-package com.scut.filemanager.ui;
+package com.scut.filemanager.ui.controller;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -8,7 +8,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.LinearLayout;
 
@@ -21,7 +20,7 @@ import com.scut.filemanager.core.Service;
 用于控制操作栏的一个类
 目前仅用于加载必要的操作栏
  */
-public class OperationBarController extends BaseController{
+public class OperationBarController extends BaseController {
 
     private LinearLayout linearLayout;
     private int layout_resource_id = R.layout.operation_bar;
@@ -103,7 +102,7 @@ public class OperationBarController extends BaseController{
     /*
     处理操作状态的回调
      */
-    public void onOperationStatusChange(TabViewController.OPERATION_STATE operation_state,int countCheckBox){
+    public void onOperationStatusChange(TabViewController.OPERATION_STATE operation_state, int countCheckBox){
         switch (operation_state){
             case SELECTING:
                 if(countCheckBox==1)

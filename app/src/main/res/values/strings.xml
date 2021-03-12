@@ -35,5 +35,7 @@
     <string name="dialogTitle_delete">Delete</string>
     <string name="delete_confirm">Are you sure to delete?</string>
     <string name="dialogtitle_detail">Detail</string>
+    <string name="navigation_header_title">A Simple FileManager For Fun</string>
+    <string name="show_system_hidden_file">Show system hidden files</string>
 
 </resources>

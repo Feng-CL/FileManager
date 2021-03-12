@@ -6,17 +6,14 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Handler;
 import android.text.InputType;
-import android.util.Log;
 import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.Toast;
 
 import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.Service;
-import com.scut.filemanager.ui.BaseController;
+import com.scut.filemanager.ui.controller.BaseController;
 import com.scut.filemanager.ui.protocols.InputConfirmCallBack;
 import com.scut.filemanager.ui.protocols.SingleLineInputDialogCallBack;
 

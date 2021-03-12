@@ -1,4 +1,4 @@
-package com.scut.filemanager;
+package com.scut.filemanager.main.activity;
 
 import android.content.Intent;
 import android.os.Build;
@@ -19,7 +19,10 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import com.scut.filemanager.FileManager;
+import com.scut.filemanager.R;
 import com.scut.filemanager.core.net.NetService;
+import com.scut.filemanager.main.MainActivity;
 import com.scut.filemanager.ui.adapter.DeviceListViewAdapter;
 import com.scut.filemanager.ui.transaction.Request;
 import com.scut.filemanager.util.protocols.WifiStateChangeListener;
@@ -103,7 +106,7 @@ implements View.OnClickListener, WifiStateChangeListener
                case UIMessageCode.UPDATE_TOOLBAR_NO_SUBTITLE:
                    toolbar.setSubtitle("");
                    break;
-               case FMGlobal.MAKE_TOAST:
+               case FileManager.MAKE_TOAST:
                    String tip= (String) msg.obj;
                    Toast.makeText(DeviceSelectActivity.this,tip,Toast.LENGTH_SHORT).show();
                    break;
@@ -145,7 +148,7 @@ implements View.OnClickListener, WifiStateChangeListener
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.d(this.getClass().getName(),"lan sender activity start ");
-        net_service=FMGlobal.netService;
+        net_service= FileManager.netService;
         net_service.bindDeviceSelectActivity(this);
         setContentView(R.layout.activity_lan_sender);
 
@@ -345,7 +348,7 @@ implements View.OnClickListener, WifiStateChangeListener
 
     public void makeToast(String toast_text){
         this.mHandler.sendMessage(
-                Request.obtain(FMGlobal.MAKE_TOAST,
+                Request.obtain(FileManager.MAKE_TOAST,
                         toast_text  )
         );
     }

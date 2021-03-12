@@ -1,4 +1,4 @@
-package com.scut.filemanager;
+package com.scut.filemanager.main;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -21,9 +21,12 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
+import android.view.View;
 import android.widget.*;
 
 import java.io.File;
@@ -32,9 +35,15 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.util.List;
 
+import com.scut.filemanager.core.Service;
+import com.scut.filemanager.core.concurrent.SharedThreadPool;
+import com.scut.filemanager.main.activity.DeviceSelectActivity;
+import com.scut.filemanager.FileManager;
+import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.net.FileNodeWrapper;
 import com.scut.filemanager.core.net.InquirePacket;
+import com.scut.filemanager.main.fragment.NavigationDrawerFragment;
 import com.scut.filemanager.ui.dialog.NotifyDialogDelegate;
 import com.scut.filemanager.ui.dialog.SingleLineInputDialogDelegate;
 import com.scut.filemanager.ui.protocols.AbstractDialogCallBack;
@@ -46,12 +55,81 @@ import com.scut.filemanager.util.FMFormatter;
 public class MainActivity extends AppCompatActivity
 
 {
+    //ref controller
     MainController controller=null;
+
+    //UI Outlets
+    androidx.appcompat.widget.Toolbar toolbar;
+    NavigationDrawerFragment navFragment;
+
+    //function member
+    private GestureDetector mGestureDetector;
+    boolean navFragment_outState =false;
+
+    //listener Impl
+    View.OnClickListener navigation_button_onclick=new View.OnClickListener() {
+
+        @Override
+        public void onClick(View view) {
+            if(navFragment!=null){
+                if(!navFragment_outState) {
+                    navFragment.pullNavigation();
+                    navFragment_outState =true;
+                }
+            }
+        }
+    };
+
+
+
+    GestureDetector.OnGestureListener mOnGestureListener=new GestureDetector.OnGestureListener() {
+
+        //Use-Case:
+        /*
+        UC1: 快速划过，隐藏导航栏
+        UC2: 用户长按屏幕，在松开之前，都要拦截事件，不能往下传递, 此时手指可能会左右滑动，这是需要带动 NavigationBar Fragment 一同移动
+        UC3: 点击非NavFragment区域时需要将其隐藏。
+        UC4: 上一步事件也需要拦截。
+         */
+
+        @Override
+        public boolean onDown(MotionEvent motionEvent) {
+            return false;
+        }
+
+        @Override
+        public void onShowPress(MotionEvent motionEvent) {
+
+        }
+
+        @Override
+        public boolean onSingleTapUp(MotionEvent motionEvent) {
+            return false;
+        }
+
+        @Override
+        public boolean onScroll(MotionEvent ev1, MotionEvent ev2, float v0, float v1) {
+            return false;
+        }
+
+        @Override
+        public void onLongPress(MotionEvent motionEvent) {
+
+        }
+
+        @Override
+        public boolean onFling(MotionEvent motionEvent, MotionEvent motionEvent1, float v0, float v1) {
+            return false;
+        }
+    };
+
+
+    //handler
     Handler mHandler=new Handler(Looper.getMainLooper()){
         @Override
         public void handleMessage(@NonNull Message msg) {
             switch (msg.what){
-                case FMGlobal.MAKE_TOAST:
+                case FileManager.MAKE_TOAST:
                     String text="class cast exception";
                     if(msg.obj instanceof String){
                         text= (String) msg.obj;
@@ -100,7 +178,11 @@ public class MainActivity extends AppCompatActivity
 //        TextView tv=(TextView)findViewById(R.id.textview3);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        setSupportActionBar((Toolbar)findViewById(R.id.my_toolbar));
+        toolbar=(Toolbar)findViewById(R.id.my_toolbar);
+        setSupportActionBar(toolbar); //尽管存在于布局中，但toolbar 是不显示的,需要通过setSupportActionBar显示指定。
+        toolbar.setNavigationOnClickListener(navigation_button_onclick);
+
+        navFragment= (NavigationDrawerFragment) getSupportFragmentManager().findFragmentById(R.id.fragment_main_navigation);
 
         int CHECK_PERMISSION_STORAGE=getPackageManager().checkPermission(MainActivity.PERMISSION_STORAGE[1],getPackageName());
         if(CHECK_PERMISSION_STORAGE!= PackageManager.PERMISSION_GRANTED) {
@@ -109,20 +191,31 @@ public class MainActivity extends AppCompatActivity
         else {
             this.initialization_process();
         }
+
+
+
+    }
+
+    public void loadFragmentDirectoryView(FileHandle dir){
+         {
+             //"stub code here "
+             controller.getTabViewController().setDisplayFolder(dir);
+         }
     }
 
     private void initialization_process(){
         controller = new MainController();
-        boolean result = controller.startService(this);
+        boolean result = controller.startService(this); //which can be an  AsyncTask
         if (result) {
             try {
                 controller.startNetService();
                 registerReceiver(controller.netService.getWiFiConnectChangeBroadCastReceiver(),
                         controller.netService.getWiFiConnectChangeBroadCastReceiver().getIntentFilter());
+                this.performAsyncTask();
             } catch (SocketException e) {
                 e.printStackTrace();
             }
-
+            //dispatchTouchEvent()
             try {
                 controller.init();
             } catch (Exception e) {
@@ -140,8 +233,8 @@ public class MainActivity extends AppCompatActivity
         //启动前准备,暂时先不对闲置对象进行管理
         Log.d("deviceName:",android.os.Build.MODEL);
 
-        FMGlobal.Default_shortAnimTime=getResources().getInteger(android.R.integer.config_shortAnimTime);
-        FMGlobal.Default_longAnimTime=getResources().getInteger(android.R.integer.config_longAnimTime);
+        FileManager.Default_shortAnimTime=getResources().getInteger(android.R.integer.config_shortAnimTime);
+        FileManager.Default_longAnimTime=getResources().getInteger(android.R.integer.config_longAnimTime);
 
 
     }
@@ -195,12 +288,17 @@ public class MainActivity extends AppCompatActivity
 
         if(keycode==KeyEvent.KEYCODE_BACK){
             try {
-                boolean comsume_result= controller.handleKeyDownEvent_callback();
-                if(!comsume_result){
-                    this.finish();
+                if(this.navFragment_outState){
+                    navFragment.pushNavigation();
+                    this.navFragment_outState=false;
+                }
+                else {
+                    boolean comsume_result = controller.handleKeyDownEvent_callback();
+                    if (!comsume_result) {
+                        this.finish();
+                    }
                 }
                 return true;
-
             } catch (IOException e) {
                 e.printStackTrace();
                 return true;
@@ -251,12 +349,58 @@ public class MainActivity extends AppCompatActivity
         return consume;
     }
 
+    private void setUpNavFragmentOnItemClickListener(){
+        navFragment.setListenerForExpandableListView(new ExpandableListView.OnChildClickListener() {
+            @Override
+            public boolean onChildClick(ExpandableListView parent, View v, int groupPosition, int childPosition, long id) {
+                boolean result=true;
+                switch (groupPosition) {
+                    case 0: {
+                        switch (childPosition) {
+                            case 0: //INTERNAL_STORAGE
+                                loadFragmentDirectoryView(controller.service.getStorageDirFileHandle());
+                                navFragment_outState=false;
+                                navFragment.pushNavigation();
+                                break;
+                            case 1: //EXTERNAL_STORAGE
+                                loadFragmentDirectoryView(controller.service.getSDCardRootDirectoryFileHandle());
+                                navFragment_outState=false;
+                                navFragment.pushNavigation();
+                                break;
+                            default:
+                                result=false;
+                                Log.d("navig onclick", "onItemClick: " + id);
+                                break;
+                        }
+                        break;
+                    }
+                    default:
+                        Log.d("navig onclick", "onItemClick: " + id);
+                        result=false;
+                        break;
+                }
+                Log.d("onChildClick",String.valueOf(groupPosition));
+                return result;
+            }
 
+        });
+    }
+
+    private void performAsyncTask(){
+        Runnable task=new Runnable() {
+            @Override
+            public void run() {
+                //mGestureDetector=new GestureDetector(MainActivity.this,mOnGestureListener);
+                setUpNavFragmentOnItemClickListener();
+            }
+        };
+        SharedThreadPool.getInstance().executeTask(task,SharedThreadPool.PRIORITY.HIGH);
+    }
 
     private void invokeDeviceSelectActivity(){
         Intent intent=new Intent(this, DeviceSelectActivity.class);
         selectedFiles=controller.getTabViewController().getSelectedFileHandles();
-        FMGlobal.netService=controller.netService;
+        FileManager.netService=controller.netService;
         this.startActivityForResult(intent,MessageCode.SEND_BY_LAN);
     }
 
@@ -312,7 +456,7 @@ public class MainActivity extends AppCompatActivity
 
     private void makeToast(String toast){
         this.mHandler.sendMessage(
-                Request.obtain(FMGlobal.MAKE_TOAST,toast)
+                Request.obtain(FileManager.MAKE_TOAST,toast)
         );
     }
 }

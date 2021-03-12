@@ -1,10 +1,10 @@
-package com.scut.filemanager.ui;
+package com.scut.filemanager.ui.controller;
 
 import android.content.Context;
 import android.os.Handler;
 import android.view.ViewGroup;
 
-import com.scut.filemanager.FMGlobal;
+import com.scut.filemanager.FileManager;
 import com.scut.filemanager.core.Service;
 import com.scut.filemanager.ui.protocols.AbstractDialogCallBack;
 import com.scut.filemanager.ui.transaction.Request;
@@ -31,7 +31,7 @@ public abstract class BaseController extends AbstractDialogCallBack {
     public  void makeToast(String text){
         if(mHandler!=null){
             mHandler.sendMessage(
-                    Request.obtain(FMGlobal.MAKE_TOAST,text)
+                    Request.obtain(FileManager.MAKE_TOAST,text)
             );
         }
     }

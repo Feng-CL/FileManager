@@ -2,32 +2,20 @@ package com.scut.filemanager.core.net;
 
 import android.util.Log;
 
-import androidx.annotation.NonNull;
-
-import com.scut.filemanager.FMGlobal;
+import com.scut.filemanager.FileManager;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.ProgressMonitor;
 import com.scut.filemanager.core.concurrent.SharedThreadPool;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketAddress;
-import java.net.SocketException;
-import java.net.SocketTimeoutException;
 import java.util.Iterator;
-import java.util.List;
 
 /**
 接收方，创建socket向服务端发送连接请求，元信息从NetService类中，取得。
@@ -77,9 +65,9 @@ public class FileReceiverClient {
     private void procedure_constructFileFromInputStream(InputStream inputStream, FileNodeWrapper wrapper, ProgressMonitor<String,Long> monitor)
             throws IOException, InterruptedException {
         monitor.onProgress("totalSize",wrapper.getTotalSize());
-        byte[] buffer=new byte[FMGlobal.Default_BlockSize];
+        byte[] buffer=new byte[FileManager.Default_BlockSize];
         long bytesOfTransferred=0L;
-        BufferedInputStream bufferedInputStream=new BufferedInputStream(inputStream,4*FMGlobal.Default_BlockSize);
+        BufferedInputStream bufferedInputStream=new BufferedInputStream(inputStream,4* FileManager.Default_BlockSize);
         Iterator<FileNode> iterator=wrapper.iterator();
 
         while(iterator.hasNext()){
@@ -88,9 +76,9 @@ public class FileReceiverClient {
                 if(node.isFile()) {
                     long fileSize = node.size;
                     FileHandle handle = node.toFileHandle(wrapper.getRootPath());
-                    int blockCount = (int) (fileSize / FMGlobal.Default_BlockSize);  //文件块数量
+                    int blockCount = (int) (fileSize / FileManager.Default_BlockSize);  //文件块数量
                     int blockOfTransferred = 0;
-                    int tailLength = (int) (fileSize % FMGlobal.Default_BlockSize);  //文件尾部长度
+                    int tailLength = (int) (fileSize % FileManager.Default_BlockSize);  //文件尾部长度
                     FileOutputStream fileOutputStream = new FileOutputStream(handle.getFile());
                     BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(fileOutputStream);
                     while (blockOfTransferred < blockCount) {
@@ -107,14 +95,14 @@ public class FileReceiverClient {
 //                            }
 //                        }
                         int byte_in_Block_transferred=0;
-                        while(byte_in_Block_transferred<FMGlobal.Default_BlockSize) {
-                            int read_result = bufferedInputStream.read(buffer, byte_in_Block_transferred, FMGlobal.Default_BlockSize-byte_in_Block_transferred);
+                        while(byte_in_Block_transferred< FileManager.Default_BlockSize) {
+                            int read_result = bufferedInputStream.read(buffer, byte_in_Block_transferred, FileManager.Default_BlockSize-byte_in_Block_transferred);
                             byte_in_Block_transferred+=read_result;
                         }
 
                         bufferedOutputStream.write(buffer);
                         blockOfTransferred++;
-                        bytesOfTransferred += FMGlobal.Default_BlockSize;
+                        bytesOfTransferred += FileManager.Default_BlockSize;
 //                        Log.d("receiving files block", "procedure_constructFileFromInputStream: byteOfTransferred: "+String.valueOf(bytesOfTransferred).concat(
 //                                " result of read: "+String.valueOf(read_result)+" available(): "+String.valueOf(bufferedInputStream.available())
 //                        ));
@@ -160,7 +148,7 @@ public class FileReceiverClient {
                 monitor.receiveMessage(NetService.MessageCode.NOTICE_CONNECTING,null);
                 Thread.sleep(1500);
                 Log.d(this.getClass().getName() , "run: connect to"+src_address.getHostAddress());
-                socket.connect(new InetSocketAddress(src_address,FMGlobal.ListenerPort),60*1000); //1 min connection timeout
+                socket.connect(new InetSocketAddress(src_address, FileManager.ListenerPort),60*1000); //1 min connection timeout
                 monitor.receiveMessage(NetService.MessageCode.NOTICE_CONNECTED,null);
                 if(procedure_constructDirectoryStructure(wrapper)){
                     monitor.receiveMessage(NetService.MessageCode.NOTICE_TRANSMITTING,null);

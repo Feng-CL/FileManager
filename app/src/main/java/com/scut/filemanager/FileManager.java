@@ -1,11 +1,13 @@
 package com.scut.filemanager;
 
+import android.app.Application;
+
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.net.NetService;
 
 import java.util.Comparator;
 
-public class FMGlobal {
+public class FileManager extends Application {
     static public int Default_shortAnimTime;
     static public int Default_longAnimTime;
     static public NetService netService=null;
@@ -29,9 +31,27 @@ public class FMGlobal {
         }
     };
 
-    static public final int ListenerPort=33721;
-    static public final int BoardCastReceivePort=33720;
+    static public int ListenerPort=33721;
+    static public int BoardCastReceivePort=33720;
     static public final int Default_BlockSize=2*1024*1024;
-
+    static public final int START_MAIN_DELAY=1500;
     static public final int MAKE_TOAST=-2; //special message code
+
+
+    private static FileManager app;
+
+    public static FileManager getInstance(){
+        return app;
+    }
+
+    public boolean showHiddenFile=false;
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        app=this;
+    }
+
+
+    //non-static member in app
 }

@@ -9,4 +9,48 @@
         <item>reply</item>
         <item>reply_all</item>
     </string-array>
+
+    <string-array name="Library">
+        <item>Images</item>
+        <item>Music</item>
+        <item>Videos</item>
+        <item>Documents</item>
+        <item>APP</item>
+        <item>Compressed</item>
+    </string-array>
+
+    <string-array name="navigationGroupName">
+        <item>Fast Access</item>
+        <item>Library</item>
+        <item>Tools</item>
+        <item>NetWork</item>
+    </string-array>
+
+    <!-- 好像不能够直接使用Integer-array -->
+
+    <array name="navigationGroupIconId">
+        <item>@drawable/ic_black_favourite</item>
+        <item>@drawable/ic_black_library</item>
+        <item>@drawable/ic_tool</item>
+        <item>@drawable/ic_black_network</item>
+    </array>
+
+
+    <string-array name="navigationGroupFastAccessChildren">
+        <item>Internal Storage</item>
+        <item>SdCard</item>
+    </string-array>
+
+    <string-array name="navigationGroupToolsChildren">
+        <item>Music player</item>
+        <item>Video player not yet</item>
+        <item>Text Editor</item>
+        <item>Garbage Collector</item>
+        <item>Setting</item>
+    </string-array>
+
+    <string-array name="navigationGroupNetWorkChildren">
+        <item>FTP Server</item>
+        <item>Lan Sender</item>
+    </string-array>
 </resources>

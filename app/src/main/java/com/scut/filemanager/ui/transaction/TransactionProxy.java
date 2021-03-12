@@ -2,9 +2,7 @@ package com.scut.filemanager.ui.transaction;
 
 import android.os.Message;
 
-import com.scut.filemanager.core.FileHandle;
-import com.scut.filemanager.core.Service;
-import com.scut.filemanager.ui.BaseController;
+import com.scut.filemanager.ui.controller.BaseController;
 
 /*
     @Description: 一种高耦合，低内聚的较差的自定义设计模式，事务代理

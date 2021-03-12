@@ -1,4 +1,4 @@
-package com.scut.filemanager.ui;
+package com.scut.filemanager.ui.controller;
 
 import android.content.Context;
 import android.content.DialogInterface;
@@ -20,8 +20,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
-import com.scut.filemanager.FMGlobal;
-import com.scut.filemanager.MainActivity;
+import com.scut.filemanager.FileManager;
+import com.scut.filemanager.main.MainActivity;
 import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.Service;
@@ -487,7 +487,7 @@ public class TabViewController extends BaseController implements AdapterView.OnI
                     case UIMessageCode.NOTIFY_UPDATE_DATASET:
                         setDisplayFolder(current);
                         break;
-                    case FMGlobal.MAKE_TOAST:
+                    case FileManager.MAKE_TOAST:
                         String toast_text= (String) msg.obj;
                         Toast.makeText(getContext(),toast_text ,Toast.LENGTH_SHORT)
                                 .show();
