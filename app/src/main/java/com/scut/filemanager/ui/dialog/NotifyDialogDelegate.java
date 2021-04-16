@@ -12,7 +12,7 @@ import androidx.annotation.NonNull;
 
 import com.scut.filemanager.R;
 import com.scut.filemanager.ui.protocols.DialogCallBack;
-import com.scut.filemanager.ui.transaction.Request;
+import com.scut.filemanager.ui.transaction.MessageBuilder;
 
 
 /**
@@ -73,20 +73,20 @@ public class NotifyDialogDelegate {
 
     public void setTitle(String title){
         mHandler.sendMessage(
-                Request.obtain(UIMessageCode.CHANGE_TITLE,title )
+                MessageBuilder.obtain(UIMessageCode.CHANGE_TITLE,title )
         );
     }
 
 
     public void setMessage(String msg){
         mHandler.sendMessage(
-                Request.obtain(UIMessageCode.CHANGE_MESSAGE,msg)
+                MessageBuilder.obtain(UIMessageCode.CHANGE_MESSAGE,msg)
         );
     }
 
     public void setView(View view){
         mHandler.sendMessage(
-                Request.obtain(UIMessageCode.CHANGE_VIEW,view)
+                MessageBuilder.obtain(UIMessageCode.CHANGE_VIEW,view)
         );
     }
 

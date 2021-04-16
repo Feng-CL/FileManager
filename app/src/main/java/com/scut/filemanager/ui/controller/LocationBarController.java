@@ -28,13 +28,13 @@ public class LocationBarController extends BaseController implements View.OnClic
     private FileHandle folder;
     private HorizontalScrollView scrollView;
     private LinearLayout layout_container;
-    private TabViewController parent_controller;
+    private TabDirectoryViewController parent_controller;
 
     Button rootBtn;
     TextView separatorTextView;
 
 
-    public LocationBarController(FileHandle folder, ViewStub stub,TabViewController parentController){
+    public LocationBarController(FileHandle folder, ViewStub stub, TabDirectoryViewController parentController){
         //inflate the layout
         super();
         stub.setLayoutResource(R.layout.location_bar);

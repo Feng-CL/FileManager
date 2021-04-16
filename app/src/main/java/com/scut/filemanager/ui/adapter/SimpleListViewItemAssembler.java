@@ -5,7 +5,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,7 +21,7 @@ import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.FileHandleFilter;
 import com.scut.filemanager.core.concurrent.SharedThreadPool;
-import com.scut.filemanager.ui.controller.TabViewController;
+import com.scut.filemanager.ui.controller.TabDirectoryViewController;
 import com.scut.filemanager.util.SimpleArrayFilter;
 import com.scut.filemanager.util.Sorter;
 import com.scut.filemanager.util.FMFormatter;
@@ -40,6 +39,7 @@ import java.util.List;
 @Description: 自定义一个项目装配器，用来装配相应数据到布局文件中。 ItemAssembler 仅仅是一个临时
 名字，后期代码将为其重构为其他名字
  */
+@Deprecated
 public class SimpleListViewItemAssembler extends BaseAdapter {
 
     //数据源
@@ -65,7 +65,7 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
     private AssembleTask assembleTask;
 
     //relative controllers
-    private TabViewController parentTabViewController;
+    private TabDirectoryViewController parentTabDirectoryViewController;
 
     static private class MessageCode{
         static private final int NOTIFY_DATASET_CHANGE=0;
@@ -79,11 +79,11 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
         public void handleMessage(@NonNull Message msg) {
             switch (msg.what){
                 case MessageCode.NOTIFY_LOADING:
-                    parentTabViewController.updateProgressBarVisibility(View.VISIBLE);
+                    parentTabDirectoryViewController.updateProgressBarVisibility(View.VISIBLE);
                     break;
                 case MessageCode.NOTIFY_LOADED:
                     notifyDataSetChanged();
-                    parentTabViewController.updateProgressBarVisibility(View.INVISIBLE);
+                    parentTabDirectoryViewController.updateProgressBarVisibility(View.INVISIBLE);
                 case MessageCode.NOTIFY_DATASET_CHANGE:
                     notifyDataSetChanged();
                     break;
@@ -94,11 +94,11 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
         }
     };
 
-    public SimpleListViewItemAssembler(FileHandle Folder, TabViewController bindController) throws Exception {
+    public SimpleListViewItemAssembler(FileHandle Folder, TabDirectoryViewController bindController) throws Exception {
         folder=Folder;
-        item_layout_id=R.layout.list_item;
-        parentTabViewController=bindController;
-        this.inflater=parentTabViewController.getLayoutInflater();
+        item_layout_id=R.layout.item_view_directory_linear;
+        parentTabDirectoryViewController =bindController;
+        this.inflater= parentTabDirectoryViewController.getLayoutInflater();
         //should not happen
         if(folder==null)
             throw new NullPointerException("[ItemAssember:creator]: Folder cannot be empty");
@@ -384,11 +384,35 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
 
     }
 
+
+    public void setPermanentFileHandleFilters(FileHandleFilter... filters){
+        this.permanent_filters=filters;
+    }
+
+    public void setHiddenFileVisibility(boolean visible){
+        if(!visible){
+            filters_bin=filters_bin==null? new FileHandleFilter[]{ new FileHandleFilter() {
+                @Override
+                public boolean accept(FileHandle fileHandle) {
+                    return !fileHandle.getName().startsWith(".");
+                }
+            }}:filters_bin;
+
+            permanent_filters=filters_bin;
+            filters_bin=null;
+        }
+        else{
+            filters_bin=permanent_filters;
+            permanent_filters=null;
+        }
+        setFolder(this.folder);
+    }
+
     /*
     @Description: 清空设置adapter 内所有item 的ischecked
      */
 
-    private void updateItemSet() {
+    private void updateFileHandlesList() {
         int item_count=folder.getFileCount();
         list_of_files.clear();
         if(item_count!=0){
@@ -531,23 +555,41 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
     //异步线程处理好应该加载的数据，并通过Message提交到主线程中,可复用的实例
  
     private List<ItemData> tempItemList=new ArrayList<>(30);
+    private FileHandleFilter[] permanent_filters=null;
+    private FileHandleFilter[] filters_bin=null;
+
 
     class AssembleTask implements Runnable{
 
-        public AssembleTask(){
+        FileHandleFilter[] filters=null; //temp
 
+        public AssembleTask(FileHandleFilter... filter){
+            filters=filter;
         }
 
         @Override
         public void run() {
             SimpleListViewItemAssembler.this.mHandler.sendEmptyMessage(MessageCode.NOTIFY_LOADING);
-                updateItemSet();
+                updateFileHandlesList();
 
             tempItemList.clear();
 
             for (int i = 0; i < list_of_files.size(); i++) {
 
                 FileHandle handle = list_of_files.get(i);
+
+                if(permanent_filters!=null) {
+                    boolean accept=true;
+                    for (int j = 0; j < permanent_filters.length; j++) {
+                        if(!permanent_filters[j].accept(handle)){
+                            accept=false;
+                            break;
+                        }
+                    }
+                    if(!accept)
+                        continue;
+                }
+
                 ItemData itemData = new ItemData();
                 itemData.itemName = handle.getName();
 
@@ -572,6 +614,7 @@ public class SimpleListViewItemAssembler extends BaseAdapter {
                 itemDataList.addAll(tempItemList);
             }
             SimpleListViewItemAssembler.this.mHandler.sendEmptyMessage(MessageCode.NOTIFY_LOADED);
+            filters=null;
         }
     }
 

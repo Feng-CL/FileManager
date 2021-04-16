@@ -7,7 +7,7 @@ import android.view.ViewGroup;
 import com.scut.filemanager.FileManager;
 import com.scut.filemanager.core.Service;
 import com.scut.filemanager.ui.protocols.AbstractDialogCallBack;
-import com.scut.filemanager.ui.transaction.Request;
+import com.scut.filemanager.ui.transaction.MessageBuilder;
 import com.scut.filemanager.ui.transaction.TransactionProxy;
 
 public abstract class BaseController extends AbstractDialogCallBack {
@@ -20,6 +20,8 @@ public abstract class BaseController extends AbstractDialogCallBack {
         setUpHandler();
         setUpProxy();
     }
+
+    abstract public void displayView();
     abstract public Context getContext();
     abstract public Handler getHandler();
     abstract public Service getFileManagerCoreService();
@@ -31,7 +33,7 @@ public abstract class BaseController extends AbstractDialogCallBack {
     public  void makeToast(String text){
         if(mHandler!=null){
             mHandler.sendMessage(
-                    Request.obtain(FileManager.MAKE_TOAST,text)
+                    MessageBuilder.obtain(FileManager.MAKE_TOAST,text)
             );
         }
     }

@@ -14,7 +14,7 @@ import androidx.annotation.NonNull;
 import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.ui.protocols.DialogCallBack;
-import com.scut.filemanager.ui.transaction.Request;
+import com.scut.filemanager.ui.transaction.MessageBuilder;
 import com.scut.filemanager.util.FMFormatter;
 
 //import java.util.logging.Handler;
@@ -272,7 +272,7 @@ public class NotifyDialog_old {
                     }
             }
             mHandler.sendMessage(
-                    Request.obtain(dialogMessageCode.REFRESH_TEXT,text.toString())
+                    MessageBuilder.obtain(dialogMessageCode.REFRESH_TEXT,text.toString())
             );
         }
     }

@@ -6,7 +6,7 @@
     android:layout_height="match_parent">
 
     <ImageView
-        android:id="@+id/imgview_item_icon"
+        android:id="@+id/viewHolder_imgView"
         android:layout_width="43dp"
         android:layout_height="50dp"
         android:layout_marginTop="5dp"
@@ -21,7 +21,7 @@
         android:layout_width="wrap_content"
         android:id="@+id/barrier"
         app:barrierDirection="right"
-        app:constraint_referenced_ids="imgview_item_icon"
+        app:constraint_referenced_ids="viewHolder_imgView"
         android:layout_height="wrap_content"/>
 
     <!--设置textview 内容限制字数 -->
@@ -33,25 +33,25 @@
         android:layout_height="wrap_content" app:layout_constraintLeft_toRightOf="@id/barrier"
         app:layout_constraintRight_toRightOf="parent" app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintHorizontal_bias="0.1" android:layout_marginTop="8dp"
-        android:id="@+id/textview_item_name"
+        android:id="@+id/viewHolder_textViewTitle"
         android:layout_marginLeft="16dp"
         android:textSize="15dp" />
 
     <TextView
-        android:id="@+id/textview_item_detail"
+        android:id="@+id/viewHolder_textViewSubTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         app:layout_constraintLeft_toRightOf="@id/barrier"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textview_item_name"
-        app:layout_constraintBottom_toBottomOf="@id/imgview_item_icon"
+        app:layout_constraintTop_toBottomOf="@+id/viewHolder_textViewTitle"
+        app:layout_constraintBottom_toBottomOf="@id/viewHolder_imgView"
         android:textSize="10dp"
         />
 
     <!-- 有时也可以考虑使用以下goneMargin -->
     <!-- 遗留问题，checkBox明显抢了焦点，但是却通过isFocused() 发现是false, 很有可能是回调函数，有空看下源码为什么-->
     <CheckBox
-        android:id="@+id/item_checkbox"
+        android:id="@+id/checkbox"
         android:visibility="invisible"
         android:focusable="false"
         app:layout_constraintRight_toRightOf="parent"

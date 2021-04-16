@@ -7,6 +7,7 @@ import android.os.Environment;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
 import com.scut.filemanager.core.internal.CopyTaskMonitor;
@@ -181,9 +182,13 @@ public class Service {
      * @param app_context 提供程序上下文
      */
         
-    public static Service getInstance(android.app.Activity app_context){
-        if (!(svc instanceof Service)) {
-            svc = new Service(app_context);
+    public static Service getInstance(@Nullable android.app.Activity app_context){
+        if (svc==null) {
+            synchronized (Service.class) {
+                if(svc==null) {
+                    svc = new Service(app_context);
+                }
+            }
         }
         return svc;
     }
@@ -804,7 +809,7 @@ public class Service {
     //private zone 比起私有方法，公有方法才是更应该关注的
     //-------------------------------------------------
 
-    private static Service svc;
+    private static volatile Service svc;
     private static File storage_emulated_0=null;
     private static File storage_sdcard=null; //here is a tricky way to get the handle of it
 

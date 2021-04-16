@@ -12,9 +12,8 @@ import com.scut.filemanager.R;
 import com.scut.filemanager.core.Service;
 import com.scut.filemanager.core.net.InquirePacket;
 import com.scut.filemanager.core.net.NetService;
-import com.scut.filemanager.main.MainActivity;
-import com.scut.filemanager.ui.controller.TabViewController;
-import com.scut.filemanager.ui.transaction.Request;
+import com.scut.filemanager.ui.controller.TabDirectoryViewController;
+import com.scut.filemanager.ui.transaction.MessageBuilder;
 import com.scut.filemanager.util.protocols.KeyDownEventHandler;
 
 import java.io.IOException;
@@ -32,7 +31,7 @@ public class MainController {
     //--------------------------------------------
 
     //controller it manages
-    private TabViewController tabViewController =null;
+    private TabDirectoryViewController tabDirectoryViewController =null;
     //--------------------------------------------
     /*这里的监听器目前只有一个，到后期通过保存监听器引用的队列，通过主控器对象
     * 获取来自MainFrame的事件，根据给定条件（状态）再分发事件到每一个拥有自定义监听器接口（协议）
@@ -82,8 +81,8 @@ public class MainController {
         ViewStub viewStub= (ViewStub)main_activity.findViewById(R.id.viewStub_for_listView);
         viewStub.setLayoutResource(R.layout.list_view_basic_for_files);
         ListView listView=(ListView)viewStub.inflate(); viewStub.setVisibility(ViewStub.VISIBLE);
-        tabViewController =new TabViewController(service,null,main_activity.findViewById(R.id.layout_tabViewContainer),listView);
-        setKeyDownEventListener(tabViewController);
+        tabDirectoryViewController =new TabDirectoryViewController(service,null,main_activity.findViewById(R.id.layout_tabViewContainer),listView);
+        setKeyDownEventListener(tabDirectoryViewController);
 
         Log.d("MainController","init successfully");
     }
@@ -120,13 +119,13 @@ public class MainController {
         return mlistener_consume_result;
     }
 
-    public TabViewController getTabViewController(){
-        return tabViewController;
+    public TabDirectoryViewController getTabDirectoryViewController(){
+        return tabDirectoryViewController;
     }
 
     public void InvokeReceiveInquireDialog(InquirePacket packet){
         main_activity.getHandler().sendMessage(
-                Request.obtain(MainActivity.MessageCode.INVOKE_RECEIVE_INQUIRY_DIALOG,packet)
+                MessageBuilder.obtain(MainActivity.MessageCode.INVOKE_RECEIVE_INQUIRY_DIALOG,packet)
         );
     }
 

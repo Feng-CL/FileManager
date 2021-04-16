@@ -1,4 +1,4 @@
-package com.scut.filemanager.main.fragment;
+package com.scut.filemanager.ui.fragment;
 
 
 import android.animation.TimeInterpolator;
@@ -12,8 +12,8 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
 import android.widget.BaseExpandableListAdapter;
+import android.widget.CompoundButton;
 import android.widget.ExpandableListView;
 import android.widget.ImageView;
 import android.widget.Switch;
@@ -38,6 +38,7 @@ public class NavigationDrawerFragment extends Fragment {
     protected ExpandableListView expandableListView;
     protected ImageView imageView_header;
     protected TextView textView_header;
+    protected Switch hiddenFilesSwitch;
 
     //measure margin
     protected int marginLeft;
@@ -72,6 +73,7 @@ public class NavigationDrawerFragment extends Fragment {
         expandableListView=mView.findViewById(R.id.expandListView_navigationFragment);
         imageView_header=mView.findViewById(R.id.imgview_nav_header);
         textView_header=mView.findViewById(R.id.textview_nav_header_title);
+        hiddenFilesSwitch=mView.findViewById(R.id.Switch);
 
         marginLeft=-mView.getWidth();
         width=mView.getWidth();
@@ -120,13 +122,18 @@ public class NavigationDrawerFragment extends Fragment {
         int view_w=expandableListView.getWidth();
         //adjust indicatorPosition and hide child indicator (which is already done in xml file)
         expandableListView.setIndicatorBounds(view_w-75,view_w-5);
-        Switch hiddenFilesSwitch=mView.findViewById(R.id.Switch);
+
         //hiddenFilesSwitch
         //bind checkBox to listener
+
     }
 
-    public void setUpListenerForSwitch(){
-
+    public void setUpListenerForSwitch(CompoundButton.OnCheckedChangeListener onCheckedChangeListener){
+        if(hiddenFilesSwitch!=null) {
+            hiddenFilesSwitch.setOnCheckedChangeListener(onCheckedChangeListener);
+            Log.d("Switch","setOnCheckedListener here ");
+        }
+        Log.d("Switch","switch outlet is null ");
     }
 
     public void setListenerForExpandableListView(ExpandableListView.OnChildClickListener onChildClickListener){
@@ -280,7 +287,7 @@ public class NavigationDrawerFragment extends Fragment {
 
 
 
-            //这个方法有点坑啊
+            //这个方法有点坑啊，如果为false,则该项点击事件不会执行
             @Override
             public boolean isChildSelectable(int groupPosition,
                                              int childPosition) {

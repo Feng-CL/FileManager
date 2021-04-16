@@ -24,7 +24,7 @@ import com.scut.filemanager.R;
 import com.scut.filemanager.core.net.NetService;
 import com.scut.filemanager.main.MainActivity;
 import com.scut.filemanager.ui.adapter.DeviceListViewAdapter;
-import com.scut.filemanager.ui.transaction.Request;
+import com.scut.filemanager.ui.transaction.MessageBuilder;
 import com.scut.filemanager.util.protocols.WifiStateChangeListener;
 
 import java.net.InetAddress;
@@ -348,7 +348,7 @@ implements View.OnClickListener, WifiStateChangeListener
 
     public void makeToast(String toast_text){
         this.mHandler.sendMessage(
-                Request.obtain(FileManager.MAKE_TOAST,
+                MessageBuilder.obtain(FileManager.MAKE_TOAST,
                         toast_text  )
         );
     }

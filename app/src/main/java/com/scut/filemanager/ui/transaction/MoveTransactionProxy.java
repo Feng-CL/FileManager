@@ -8,7 +8,7 @@ import com.scut.filemanager.core.Service;
 import com.scut.filemanager.core.internal.AbstractTaskMonitor;
 import com.scut.filemanager.core.internal.MessageEntry;
 import com.scut.filemanager.ui.controller.BaseController;
-import com.scut.filemanager.ui.controller.TabViewController;
+import com.scut.filemanager.ui.controller.TabDirectoryViewController;
 import com.scut.filemanager.ui.dialog.ProgressDialogDelegate;
 import com.scut.filemanager.ui.protocols.ProgressDialogContentProvider;
 
@@ -54,10 +54,10 @@ public class MoveTransactionProxy extends AbstractTaskMonitor<String,Float> impl
         progress_status=PROGRESS_STATUS.GOING;
         //通知正在估算进度
         this.targetHandler.sendMessage(
-                Request.obtain(ProgressDialogDelegate.UIMessageCode.UPDATE_PROGRESS_BAR,0,"calculating")
+                MessageBuilder.obtain(ProgressDialogDelegate.UIMessageCode.UPDATE_PROGRESS_BAR,0,"calculating")
         );
         //通知速度
-        this.targetHandler.sendMessage(Request.obtain(
+        this.targetHandler.sendMessage(MessageBuilder.obtain(
                 ProgressDialogDelegate.UIMessageCode.UPDATE_SPEED_DESC,"calculating"
         ));
     }
@@ -80,7 +80,7 @@ public class MoveTransactionProxy extends AbstractTaskMonitor<String,Float> impl
                     progress_status = PROGRESS_STATUS.COMPLETED;
                     //refresh UI
                     this.targetHandler.sendMessage(
-                            Request.obtain(ProgressDialogDelegate.UIMessageCode.UPDATE_PROGRESS_BAR, 100, "Finished")
+                            MessageBuilder.obtain(ProgressDialogDelegate.UIMessageCode.UPDATE_PROGRESS_BAR, 100, "Finished")
                     );
                     this.parentController.makeToast("move successfully");
                 }
@@ -93,7 +93,7 @@ public class MoveTransactionProxy extends AbstractTaskMonitor<String,Float> impl
                     msgArray[0] = messageEntry.getKey().toString();
                     msgArray[1] = messageEntry.getValue();
                     this.targetHandler.sendMessage(
-                            Request.obtain(ProgressDialogDelegate.UIMessageCode.POP_NOTIFY_DIALOG, msgArray)
+                            MessageBuilder.obtain(ProgressDialogDelegate.UIMessageCode.POP_NOTIFY_DIALOG, msgArray)
                     );
                 }
                 this.parentController.makeToast("progress: ");
@@ -126,8 +126,8 @@ public class MoveTransactionProxy extends AbstractTaskMonitor<String,Float> impl
     @Override
     public void onDialogClose(DialogInterface dialogInterface, boolean updateView) {
         if(updateView){
-            if(parentController instanceof TabViewController){
-                TabViewController c= (TabViewController) parentController;
+            if(parentController instanceof TabDirectoryViewController){
+                TabDirectoryViewController c= (TabDirectoryViewController) parentController;
                 c.setDisplayFolder(c.getCurrentLocationFileHandle());
             }
         }
@@ -156,7 +156,7 @@ public class MoveTransactionProxy extends AbstractTaskMonitor<String,Float> impl
         else {
             //notify UI now is pausing
             this.targetHandler.sendMessage(
-                    Request.obtain(ProgressDialogDelegate.UIMessageCode.UPDATE_SPEED_DESC,"paused")
+                    MessageBuilder.obtain(ProgressDialogDelegate.UIMessageCode.UPDATE_SPEED_DESC,"paused")
             );
             interruptSignal = true;
         }
@@ -190,14 +190,14 @@ public class MoveTransactionProxy extends AbstractTaskMonitor<String,Float> impl
     public void onProgress(String key, Float value) {
         int progress_value= (int) (value*100);
         this.targetHandler.sendMessage(
-                Request.obtain(
+                MessageBuilder.obtain(
                         ProgressDialogDelegate.UIMessageCode.UPDATE_TASK_DESC,
                         "Moving "+key
                 )
         );
 
         this.targetHandler.sendMessage(
-                Request.obtain(
+                MessageBuilder.obtain(
                         ProgressDialogDelegate.UIMessageCode.UPDATE_PROGRESS_BAR,
                         progress_value,
                         "finished: "+progress_value+"%"

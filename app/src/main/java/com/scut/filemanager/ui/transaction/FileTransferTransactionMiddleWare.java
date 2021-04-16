@@ -166,7 +166,7 @@ public class FileTransferTransactionMiddleWare extends AbstractDialogCallBack
 
     public void toast(String toast){
         this.mHandler.sendMessage(
-                Request.obtain(FileManager.MAKE_TOAST,toast)
+                MessageBuilder.obtain(FileManager.MAKE_TOAST,toast)
         );
     }
     /**

@@ -29,7 +29,7 @@ import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.FileHandleFilter;
 import com.scut.filemanager.core.Service;
 import com.scut.filemanager.ui.controller.BaseController;
-import com.scut.filemanager.ui.controller.TabViewController;
+import com.scut.filemanager.ui.controller.TabDirectoryViewController;
 import com.scut.filemanager.ui.protocols.LocationPickerCallback;
 import com.scut.filemanager.ui.transaction.TransactionProxy;
 import com.scut.filemanager.util.FMArrays;
@@ -62,7 +62,7 @@ public class LocationPickDialogDelegate extends BaseController
     private BaseController parentController;
 
     //other useful variables
-    private FileHandle[] superFolder= TabViewController.SuperFolder;
+    private FileHandle[] superFolder= TabDirectoryViewController.SuperFolder;
 
     //callback
     private LocationPickerCallback callback;

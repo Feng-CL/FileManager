@@ -35,7 +35,6 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.util.List;
 
-import com.scut.filemanager.core.Service;
 import com.scut.filemanager.core.concurrent.SharedThreadPool;
 import com.scut.filemanager.main.activity.DeviceSelectActivity;
 import com.scut.filemanager.FileManager;
@@ -43,13 +42,13 @@ import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.net.FileNodeWrapper;
 import com.scut.filemanager.core.net.InquirePacket;
-import com.scut.filemanager.main.fragment.NavigationDrawerFragment;
+import com.scut.filemanager.ui.fragment.NavigationDrawerFragment;
 import com.scut.filemanager.ui.dialog.NotifyDialogDelegate;
 import com.scut.filemanager.ui.dialog.SingleLineInputDialogDelegate;
 import com.scut.filemanager.ui.protocols.AbstractDialogCallBack;
 import com.scut.filemanager.ui.transaction.FileTransferTransactionMiddleWare;
 import com.scut.filemanager.ui.transaction.MIME_MapTable;
-import com.scut.filemanager.ui.transaction.Request;
+import com.scut.filemanager.ui.transaction.MessageBuilder;
 import com.scut.filemanager.util.FMFormatter;
 
 public class MainActivity extends AppCompatActivity
@@ -199,7 +198,7 @@ public class MainActivity extends AppCompatActivity
     public void loadFragmentDirectoryView(FileHandle dir){
          {
              //"stub code here "
-             controller.getTabViewController().setDisplayFolder(dir);
+             controller.getTabDirectoryViewController().setDisplayFolder(dir);
          }
     }
 
@@ -319,25 +318,25 @@ public class MainActivity extends AppCompatActivity
                 consume=false;
                 break;
             case R.id.main_menu_item_select_all:
-                if(controller.getTabViewController()!=null){
-                    controller.getTabViewController().setSelectAll();
+                if(controller.getTabDirectoryViewController()!=null){
+                    controller.getTabDirectoryViewController().setSelectAll();
                 }
                 consume=false;
                 break;
             case R.id.main_menu_item_mkdir:
-                if(controller.getTabViewController()!=null){
-                    FileHandle location=controller.getTabViewController().getCurrentLocationFileHandle();
+                if(controller.getTabDirectoryViewController()!=null){
+                    FileHandle location=controller.getTabDirectoryViewController().getCurrentLocationFileHandle();
                     SingleLineInputDialogDelegate delegate=new SingleLineInputDialogDelegate(SingleLineInputDialogDelegate.DialogType.NEW_DIRECTORY,
-                            controller.getTabViewController(),controller.getTabViewController());
+                            controller.getTabDirectoryViewController(),controller.getTabDirectoryViewController());
                     delegate.showDialog();
                 }
                 consume=false;
                 break;
             case R.id.main_menu_item_new:
-                if(controller.getTabViewController()!=null){
-                    FileHandle location=controller.getTabViewController().getCurrentLocationFileHandle();
+                if(controller.getTabDirectoryViewController()!=null){
+                    FileHandle location=controller.getTabDirectoryViewController().getCurrentLocationFileHandle();
                     SingleLineInputDialogDelegate delegate=new SingleLineInputDialogDelegate(SingleLineInputDialogDelegate.DialogType.NEW_FILE,
-                            controller.getTabViewController(),controller.getTabViewController());
+                            controller.getTabDirectoryViewController(),controller.getTabDirectoryViewController());
                     delegate.showDialog();
                 }
                 consume=false;
@@ -347,6 +346,17 @@ public class MainActivity extends AppCompatActivity
                 break;
         }
         return consume;
+    }
+
+    private void setUpNavFragmentHiddenFileSwitchListener(){
+        navFragment.setUpListenerForSwitch(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                FileManager.getInstance().showHiddenFile=isChecked;
+                controller.getTabDirectoryViewController().setHiddenFilesVisibility(isChecked);
+                Log.d("onCheckedChange",String.valueOf(isChecked));
+            }
+        });
     }
 
     private void setUpNavFragmentOnItemClickListener(){
@@ -392,6 +402,7 @@ public class MainActivity extends AppCompatActivity
             public void run() {
                 //mGestureDetector=new GestureDetector(MainActivity.this,mOnGestureListener);
                 setUpNavFragmentOnItemClickListener();
+                setUpNavFragmentHiddenFileSwitchListener();
             }
         };
         SharedThreadPool.getInstance().executeTask(task,SharedThreadPool.PRIORITY.HIGH);
@@ -399,7 +410,7 @@ public class MainActivity extends AppCompatActivity
 
     private void invokeDeviceSelectActivity(){
         Intent intent=new Intent(this, DeviceSelectActivity.class);
-        selectedFiles=controller.getTabViewController().getSelectedFileHandles();
+        selectedFiles=controller.getTabDirectoryViewController().getSelectedFileHandles();
         FileManager.netService=controller.netService;
         this.startActivityForResult(intent,MessageCode.SEND_BY_LAN);
     }
@@ -456,7 +467,7 @@ public class MainActivity extends AppCompatActivity
 
     private void makeToast(String toast){
         this.mHandler.sendMessage(
-                Request.obtain(FileManager.MAKE_TOAST,toast)
+                MessageBuilder.obtain(FileManager.MAKE_TOAST,toast)
         );
     }
 }

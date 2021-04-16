@@ -2,7 +2,6 @@ package com.scut.filemanager.ui.dialog;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Build;
 import android.os.Handler;
@@ -19,7 +18,7 @@ import androidx.annotation.RequiresApi;
 
 import com.scut.filemanager.R;
 import com.scut.filemanager.ui.protocols.ProgressDialogContentProvider;
-import com.scut.filemanager.ui.transaction.Request;
+import com.scut.filemanager.ui.transaction.MessageBuilder;
 
 
 public class ProgressDialogDelegate {
@@ -187,31 +186,31 @@ public class ProgressDialogDelegate {
 
     public void update_progress_bar(int progress_value,String desc){
         this.mHandler.sendMessage(
-                Request.obtain(UIMessageCode.UPDATE_PROGRESS_BAR,progress_value,desc)
+                MessageBuilder.obtain(UIMessageCode.UPDATE_PROGRESS_BAR,progress_value,desc)
         );
     }
 
     public void update_task_description(String task_desc){
         this.mHandler.sendMessage(
-                Request.obtain(UIMessageCode.UPDATE_TASK_DESC,task_desc)
+                MessageBuilder.obtain(UIMessageCode.UPDATE_TASK_DESC,task_desc)
         );
     }
 
     public void update_speed_description(String speed_desc){
         this.mHandler.sendMessage(
-                Request.obtain(UIMessageCode.UPDATE_SPEED_DESC,speed_desc)
+                MessageBuilder.obtain(UIMessageCode.UPDATE_SPEED_DESC,speed_desc)
         );
     }
 
     public void update_title(String title){
         this.mHandler.sendMessage(
-                Request.obtain(UIMessageCode.UPDATE_TITLE,title )
+                MessageBuilder.obtain(UIMessageCode.UPDATE_TITLE,title )
         );
     }
 
     public void update_time_ticking(String time){
         this.mHandler.sendMessage(
-                Request.obtain(UIMessageCode.UPDATE_TIME_TICKING,"Elapsed time: "+time)
+                MessageBuilder.obtain(UIMessageCode.UPDATE_TIME_TICKING,"Elapsed time: "+time)
         );
     }
 
@@ -219,7 +218,7 @@ public class ProgressDialogDelegate {
         String[] tokens=new String[2];
         tokens[0]=title;    tokens[1]=message;
         this.mHandler.sendMessage(
-                Request.obtain(UIMessageCode.POP_NOTIFY_DIALOG,tokens)
+                MessageBuilder.obtain(UIMessageCode.POP_NOTIFY_DIALOG,tokens)
         );
     }
 

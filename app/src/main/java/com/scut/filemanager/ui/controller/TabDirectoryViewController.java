@@ -2,10 +2,13 @@ package com.scut.filemanager.ui.controller;
 
 import android.content.Context;
 import android.content.DialogInterface;
+import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
+import android.util.SparseArray;
+import android.view.InflateException;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,13 +22,19 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.UiThread;
+import androidx.annotation.WorkerThread;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.scut.filemanager.FileManager;
+import com.scut.filemanager.core.FileHandleFilter;
 import com.scut.filemanager.main.MainActivity;
 import com.scut.filemanager.R;
 import com.scut.filemanager.core.FileHandle;
 import com.scut.filemanager.core.Service;
 import com.scut.filemanager.core.concurrent.SharedThreadPool;
+import com.scut.filemanager.ui.adapter.AbsRecyclerLinearAdapter;
+import com.scut.filemanager.ui.adapter.DirectoryViewAdapter;
 import com.scut.filemanager.ui.adapter.SimpleListViewItemAssembler;
 import com.scut.filemanager.ui.dialog.LocationPickDialogDelegate;
 import com.scut.filemanager.ui.dialog.NotifyDialog_old;
@@ -34,15 +43,19 @@ import com.scut.filemanager.ui.protocols.DialogCallBack;
 import com.scut.filemanager.ui.protocols.LocationPickerCallback;
 import com.scut.filemanager.ui.protocols.SingleLineInputDialogCallBack;
 import com.scut.filemanager.ui.transaction.CopyTransactionProxy;
+import com.scut.filemanager.ui.transaction.MessageBuilder;
 import com.scut.filemanager.ui.transaction.MoveTransactionProxy;
 import com.scut.filemanager.util.protocols.DisplayFolderChangeResponder;
 import com.scut.filemanager.util.protocols.KeyDownEventHandler;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
-
-public class TabViewController extends BaseController implements AdapterView.OnItemClickListener, KeyDownEventHandler
+/**
+ * TabDirectoryViewController 控制目录视图下的交互动作，行为。
+ */
+public class TabDirectoryViewController extends BaseController implements AdapterView.OnItemClickListener, KeyDownEventHandler
     , AdapterView.OnItemLongClickListener, AbsListView.OnScrollListener
     , SingleLineInputDialogCallBack, LocationPickerCallback
 {
@@ -50,8 +63,12 @@ public class TabViewController extends BaseController implements AdapterView.OnI
     /*
     @Description: 管理MainFrame(也叫MainActivity)所inflate 的对象的状态.
     监听处理来自装载布局所产生的事件请求，
-
      */
+
+    //context
+    private Context mContext;
+
+    //relative controller
     private OperationBarController operationBarController; //操作栏控制器
     private LocationBarController locationBarController; //地址栏控制器
 
@@ -63,17 +80,20 @@ public class TabViewController extends BaseController implements AdapterView.OnI
     private boolean isReachRoot;    //判断当前视图是否应该继续返回键的事件
 
     //UI outlets
-    private ListView listViewInTab =null;  //该控制器控制的视图
+    private RecyclerView recyclerView=null;
     private View tabView=null;
     private ProgressBar progressCircle;
 
-    private SimpleListViewItemAssembler adapter; //视图的数据来源
+    //private SimpleListViewItemAssembler adapter; //视图的数据来源
+    private DirectoryViewAdapter adapter;
     //private boolean[] loadingLock={true,true,true}; //用于同步一些行为
 
     static public FileHandle[] SuperFolder=new FileHandle[2]; //特殊的文件句柄，用于显示内外存储的文件夹
 
+    static int layoutId=R.layout.tabview_v1;
 
     private int selectedCount=0; //一个额外但很有用的记数变量，记录选中文件的数量
+    private int viewType=DirectoryViewAdapter.LINEAR;
     protected OPERATION_STATE operation_state=OPERATION_STATE.STATIC; //标记当前状态
     protected OPERATION_STATE scrolling_state=OPERATION_STATE.STATIC; //标记滚动状态
 
@@ -86,42 +106,106 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         COPY, CUT, RENAME,NEW_FILE,MAKE_DIRECTORY,DELETE,
         MORE,
         OTHER //更多状态未定义
-        ;
     }
 
-//    Handler mHandler=new Handler(Looper.getMainLooper()){
-//        @Override
-//        public void handleMessage(@NonNull Message msg) {
-//            super.handleMessage(msg);
-//
-//        }
-//    };
 
-    public TabViewController(Service svc, ViewGroup parentView, View viewManaged,ListView listView) throws Exception {
+    final protected static class UIMessageCode {
+        static final int INFLATE_LAYOUT=0;
+        static final int UI_THREAD_WORK=1; //obj:Runnable
+        static final int UI_LOADING=2;
+        static final int UI_LOADED=3;
+    }
+
+
+    Handler mHandler=new Handler(Looper.getMainLooper()){
+        @Override
+        public void handleMessage(@NonNull Message msg) {
+            switch (msg.what){
+                case UIMessageCode.INFLATE_LAYOUT:
+                    break;
+                case UIMessageCode.UI_THREAD_WORK:
+                    Runnable work= (Runnable) msg.obj;
+                    work.run();
+                    break;
+                case UIMessageCode.UI_LOADING:
+                    if(progressCircle!=null){
+                        progressCircle.setVisibility(View.VISIBLE);
+                    }
+                    break;
+                case UIMessageCode.UI_LOADED:
+                    if(progressCircle!=null){
+                        progressCircle.setVisibility(View.GONE);
+                    }
+                    break;
+                default:
+                    //super.handleMessage(msg);
+                    break;
+            }
+
+        }
+    };
+
+    /**
+     * 优化tabView视图控制器，加载此控制器需要上下文,视图组,
+     * @param parentView
+     */
+    public TabDirectoryViewController(ViewGroup parentView){
         super();
-        service=svc;
+        this.mContext= parentView.getContext();
+        service=Service.getInstance(null);
         this.parentView=parentView;
-        tabView=viewManaged;
-        //设置监听
-        listViewInTab=listView;
-        listViewInTab.setOnItemClickListener(this);
-        listViewInTab.setOnItemLongClickListener(this);
-        listViewInTab.setOnScrollListener(this);
 
-
-        locationBarController=new LocationBarController(null, (ViewStub) tabView.findViewById(R.id.viewStub_for_locationBar),this);
-        operationBarController=new OperationBarController((ViewStub)tabView.findViewById(R.id.rootview_for_operationBar));
-        operationBarController.setButtonOnClickListener(new OnOperationBarButtonClickedListener());
-
-        progressCircle=tabView.findViewById(R.id.progressbar_loading);
         initStaticMember();
-        LoadFirstTab();
     }
 
+    @Override
+    public void displayView() {
+        mHandler.sendEmptyMessage(UIMessageCode.INFLATE_LAYOUT);
+    }
+
+    @UiThread
+    public void inflateViewInParentView(LayoutInflater inflater) {
+        if(tabView==null){ //prevent inflate multiple time
+            tabView=inflater.inflate(layoutId,this.parentView,false);
+
+            //get viewStub of recycle view first
+            ViewStub recyclerViewStub=tabView.findViewById(R.id.viewStub_for_containerView);
+            recyclerViewStub.setLayoutResource(R.layout.recycle_view);
+
+            //inflate it
+            recyclerView= (RecyclerView) recyclerViewStub.inflate(); recyclerViewStub.setVisibility(View.VISIBLE);
+            recyclerViewStub=null;
+
+            //find view stub for locationBar;
+            ViewStub stub=tabView.findViewById(R.id.viewStub_for_locationBar);
+            locationBarController=new LocationBarController(current,stub,this);
+
+            //find view stub for operation bar
+            stub=tabView.findViewById(R.id.rootview_for_operationBar);
+            operationBarController=new OperationBarController(stub);
+
+            //find progressCircle reference;
+            progressCircle=tabView.findViewById(R.id.progressbar_loading);
+        }
+    }
+
+
+
+    private void setUpListeners(){
+
+    }
+
+    @WorkerThread
     public void LoadFirstTab() throws Exception {
         current=service.getStorageDirFileHandle();
         isReachRoot=false;
-        adapter=new SimpleListViewItemAssembler(current,this);
+
+        List<AbsRecyclerLinearAdapter.ItemData> listOfItem;
+
+
+
+
+        adapter=new DirectoryViewAdapter(listOfItem,viewType);
         ListView listView=(ListView) listViewInTab;
         listView.setAdapter(adapter);
         registerFolderChangedResponder(locationBarController);
@@ -131,11 +215,13 @@ public class TabViewController extends BaseController implements AdapterView.OnI
 
     }
 
+    private List<AbsRecyclerLinearAdapter.ItemData> getItemsFromFileHandle(FileHandle dir){
+        List<AbsRecyclerLinearAdapter.ItemData> list=new ArrayList<>((int)(dir.getFileCount()*1.5));
+    }
+
+
     public LayoutInflater getLayoutInflater(){
-        android.view.LayoutInflater layoutInflater=(LayoutInflater) service.getContext().getSystemService(
-                Context.LAYOUT_INFLATER_SERVICE
-        );
-        return layoutInflater;
+        return LayoutInflater.from(getContext());
     }
 
 
@@ -278,6 +364,15 @@ public class TabViewController extends BaseController implements AdapterView.OnI
         }
         adapter.setFolder(current);
         selectedCount=0;
+    }
+
+    public void setPermanentFileHandleFilters(FileHandleFilter... filters){
+        adapter.setPermanentFileHandleFilters(filters);
+        adapter.setFolder(current);
+    }
+
+    public void setHiddenFilesVisibility(boolean visible){
+        adapter.setHiddenFileVisibility(visible);
     }
 
     @Override
@@ -568,10 +663,10 @@ public class TabViewController extends BaseController implements AdapterView.OnI
 
         protected void makeToast(boolean result){
             if(result){
-                TabViewController.this.makeToast("delete successfully");
+                TabDirectoryViewController.this.makeToast("delete successfully");
             }
             else {
-                TabViewController.this.makeToast("delete failed");
+                TabDirectoryViewController.this.makeToast("delete failed");
             }
         }
     }
@@ -614,20 +709,20 @@ public class TabViewController extends BaseController implements AdapterView.OnI
                     //需要通过operation_state来标记点击操作栏后进入的状态，否则回调函数无法知道结束后要做什么
                     operation_state = OPERATION_STATE.COPY;
                     LocationPickDialogDelegate locationPickDialogController = new LocationPickDialogDelegate(current,
-                            TabViewController.this, TabViewController.this);
+                            TabDirectoryViewController.this, TabDirectoryViewController.this);
                     locationPickDialogController.showDialog();
                 }
                     break;
                 case 3:{
                     operation_state=OPERATION_STATE.CUT;
                     LocationPickDialogDelegate locationPickDialogController = new LocationPickDialogDelegate(current,
-                            TabViewController.this, TabViewController.this);
+                            TabDirectoryViewController.this, TabDirectoryViewController.this);
                     locationPickDialogController.showDialog();
                 }
                     break;
                 case 4: {
                     operation_state = OPERATION_STATE.RENAME;
-                    SingleLineInputDialogDelegate dialogDelegate = new SingleLineInputDialogDelegate(SingleLineInputDialogDelegate.DialogType.RENAME, TabViewController.this, TabViewController.this);
+                    SingleLineInputDialogDelegate dialogDelegate = new SingleLineInputDialogDelegate(SingleLineInputDialogDelegate.DialogType.RENAME, TabDirectoryViewController.this, TabDirectoryViewController.this);
                     FileHandle selectedFile=adapter.getSelectedFile();
                     if(selectedFile!=null){
                         String filename=selectedFile.getName();
@@ -666,7 +761,7 @@ public class TabViewController extends BaseController implements AdapterView.OnI
                     break;
                 case 7:{
                     operation_state=OPERATION_STATE.STATIC;
-                    TabViewController.this.operationBarController.onOperationStatusChange(operation_state,TabViewController.this.selectedCount);
+                    TabDirectoryViewController.this.operationBarController.onOperationStatusChange(operation_state, TabDirectoryViewController.this.selectedCount);
                 }
                     break;
                 case 8:{
@@ -687,9 +782,7 @@ public class TabViewController extends BaseController implements AdapterView.OnI
 
 
 
-    public static class UIMessageCode {
-       public  static final int NOTIFY_UPDATE_DATASET=0;
-    }
+
 
 
 

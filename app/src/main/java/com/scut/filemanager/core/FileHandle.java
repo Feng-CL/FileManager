@@ -87,6 +87,14 @@ public class FileHandle {
             CanonicalPathName=dir.getCanonicalPathName()+pathname; //notice this variable of how it comes
     }
 
+    public void pointTo(String pathname){
+        file=null;
+        file=new File(pathname);
+        AbsolutePathName=pathname;
+        tryRetrieveCanonicalPath();
+    }
+
+
     public String getAbsolutePathName(){
         return AbsolutePathName;
     }
@@ -739,6 +747,59 @@ public class FileHandle {
     private static String storage_prefix="/storage";
     private static String sdcard_prefix=null;
     private static SharedThreadPool sharedThreadPool=SharedThreadPool.getInstance();
+    private static FileHandle recycleBin=null;
+
+    /**
+     * 在调用该方法后，不应再调用该句柄引用了
+     */
+    public void recycle(){
+        this.file=null;
+        this.AbsolutePathName=null;
+        this.CanonicalPathName=null;
+        synchronized (recycleBin) {
+            if(recycleBin==null) {
+                recycleBin = this;
+            }
+            //recycleBin already has Object
+        }
+    }
+
+    public static FileHandle obtain(File file){
+        synchronized (recycleBin){
+            if(recycleBin!=null){
+                FileHandle handle=recycleBin;
+                handle.file=file;
+                handle.AbsolutePathName=file.getAbsolutePath();
+                handle.tryRetrieveCanonicalPath();
+                recycleBin=null;
+                return handle;
+            }
+            else{
+                return new FileHandle(file);
+            }
+        }
+    }
+
+    public static FileHandle obtain(String pathname){
+        synchronized (recycleBin){
+            if(recycleBin!=null){
+                FileHandle handle=recycleBin;
+                handle.file=new File(pathname);
+                handle.AbsolutePathName=pathname;
+                handle.tryRetrieveCanonicalPath();
+                recycleBin=null;
+                return handle;
+            }
+            else{
+                return new FileHandle(pathname);
+            }
+        }
+    }
+
+    public static FileHandle obtain(FileHandle dir, String filename){
+        String pathname=dir.getAbsolutePathName()+"/"+filename;
+        return obtain(pathname);
+    }
 
     /*
     @Description： 检查该FileHandle所对应的抽象路径名是否含有非法字符
@@ -751,6 +812,11 @@ public class FileHandle {
 
     public static void _initPrefixName(Service svc){
         sdcard_prefix=svc.getSDCardRootDirectoryPathName();
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+        recycle();
     }
 
     static public boolean makeDirectory(FileHandle parent, String name){
@@ -881,7 +947,7 @@ public class FileHandle {
             if(!cancelSignal) {
             FileHandle[] list_item = handle.listFiles();
             sizeAccumulated += handle.Size();
-                if (list_item != null) { //list_item is not null directory
+                if (list_item != null) { //item_view_directory_linear is not null directory
                     for (int i = 0; i < list_item.length; i++) {
                         totalSizeHelperFunction(list_item[i]); //add cumulatively recursively
                     }

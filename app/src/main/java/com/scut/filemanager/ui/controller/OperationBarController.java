@@ -102,7 +102,7 @@ public class OperationBarController extends BaseController {
     /*
     处理操作状态的回调
      */
-    public void onOperationStatusChange(TabViewController.OPERATION_STATE operation_state, int countCheckBox){
+    public void onOperationStatusChange(TabDirectoryViewController.OPERATION_STATE operation_state, int countCheckBox){
         switch (operation_state){
             case SELECTING:
                 if(countCheckBox==1)
@@ -163,8 +163,8 @@ public class OperationBarController extends BaseController {
     }
 
 
-    public void onScrollStateChange(TabViewController.OPERATION_STATE state){
-        if(state == TabViewController.OPERATION_STATE.SCROLLING){
+    public void onScrollStateChange(TabDirectoryViewController.OPERATION_STATE state){
+        if(state == TabDirectoryViewController.OPERATION_STATE.SCROLLING){
             //hide
             fadeOut();
         }

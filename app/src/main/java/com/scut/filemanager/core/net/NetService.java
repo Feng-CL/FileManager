@@ -21,7 +21,7 @@ import com.scut.filemanager.core.Service;
 import com.scut.filemanager.core.concurrent.SharedThreadPool;
 import com.scut.filemanager.core.internal.BoardCastScanWatcher;
 import com.scut.filemanager.ui.adapter.DeviceListViewAdapter;
-import com.scut.filemanager.ui.transaction.Request;
+import com.scut.filemanager.ui.transaction.MessageBuilder;
 import com.scut.filemanager.util.FMFormatter;
 import com.scut.filemanager.util.protocols.WifiStateChangeListener;
 
@@ -287,7 +287,7 @@ public class NetService extends BoardCastScanWatcher {
                     itemData.DeviceIp = key.getHostAddress();
                     itemData.DeviceName = value.description;
                     deviceSelectActivity.mHandler.sendMessage(
-                            Request.obtain(DeviceSelectActivity.UIMessageCode.NOTIFY_DATASET_CHANGE, itemData)
+                            MessageBuilder.obtain(DeviceSelectActivity.UIMessageCode.NOTIFY_DATASET_CHANGE, itemData)
                     );
                 }
                 break;
@@ -344,7 +344,7 @@ public class NetService extends BoardCastScanWatcher {
     public void notifyActivityToToast(String text){
         if(this.deviceSelectActivity !=null){
             this.deviceSelectActivity.mHandler.sendMessage(
-                    Request.obtain(FileManager.MAKE_TOAST,text)
+                    MessageBuilder.obtain(FileManager.MAKE_TOAST,text)
             );
         }
     }
